@@ -117,6 +117,20 @@ The production server (`npm run start` behind the real Neon database) was driven
 
 One real defect was found and fixed during this pass: Iconsax outline icons rendered invisibly under React 19 (the library's colour prop is not applied), so a scoped `stroke: currentColor` rule now supplies the outline. Screenshots were captured after the fix.
 
+## Continuous integration (GitHub Actions, no provider credentials)
+
+Run [35903439629](https://github.com/mariechristsagbo/ai-video-studio/actions/runs/35903439629) on `main` for commit `bf3ba143e04e3e3f3f5822ff9d6fad7ac61be6ff` — **quality: success in 1m5s**:
+
+```text
+pnpm install --frozen-lockfile => success
+pnpm lint                     => success
+pnpm typecheck                => success
+pnpm test                     => success
+pnpm build                    => success
+```
+
+The same build was also reproduced locally with `.env` temporarily removed, proving the pipeline needs no database, Redis or provider credentials.
+
 ## Docker verification
 
 ```bash
