@@ -14,7 +14,7 @@ import {
 import { detail, ownedGeneration } from "../src/generations/repository";
 import { processJob, reconcile } from "../src/workers/main";
 import { queueNames, connection, getQueues } from "../src/queues";
-import { storage, safePath } from "../src/storage/local";
+import { storage } from "../src/storage";
 import { createAuth } from "../src/auth";
 import { assets } from "../src/db/schema";
 import { probe } from "../src/render/process";
@@ -218,7 +218,7 @@ try {
     .select()
     .from(assets)
     .where(eq(assets.id, d.renders[0].assetId!));
-  const renderedInfo = await probe(safePath(rendered.path));
+  const renderedInfo = await probe(await storage.materialize(rendered.path));
   const renderedVideo = renderedInfo.streams.find((s) => s.codec_type === "video");
   assert.equal(renderedVideo?.width, 1080);
   assert.equal(renderedVideo?.height, 1920);

@@ -1,5 +1,5 @@
 import { fileTypeFromBuffer } from "file-type";
-import { storage, mediaKey, safePath } from "./local";
+import { storage, mediaKey } from "./index";
 import { probe } from "../render/process";
 import { db } from "../db";
 import { assets } from "../db/schema";
@@ -36,7 +36,7 @@ export async function saveUpload(
   const key = mediaKey(userId, generationId, type.ext);
   await storage.put(key, bytes);
   try {
-    const info = await probe(safePath(key));
+    const info = await probe(await storage.materialize(key));
     if (kind === "reference") {
       const video = info.streams.find((s) => s.codec_type === "video");
       if (

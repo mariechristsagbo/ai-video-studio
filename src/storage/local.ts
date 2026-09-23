@@ -1,9 +1,10 @@
 import { resolve, sep, dirname } from "node:path";
-import { mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdir, writeFile, rm, stat } from "node:fs/promises";
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { request } from "node:https";
 import ipaddr from "ipaddr.js";
+import type { StorageProvider } from "./types";
 export function safePath(key: string) {
   const root = resolve(/*turbopackIgnore: true*/ process.env.DATA_DIR || "data");
   const path = resolve(root, key);
@@ -11,22 +12,42 @@ export function safePath(key: string) {
     throw new Error("Invalid storage key");
   return path;
 }
-export interface StorageProvider {
-  put(key: string, bytes: Uint8Array): Promise<string>;
-  remove(key: string): Promise<void>;
-}
 export class LocalStorageProvider implements StorageProvider {
+  readonly driver = "local" as const;
   async put(key: string, bytes: Uint8Array) {
     const path = safePath(key);
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, bytes, { mode: 0o600 });
     return key;
   }
+  async upload(key: string) {
+    await stat(safePath(key));
+    return key;
+  }
+  localPath(key: string) {
+    return safePath(key);
+  }
+  async materialize(key: string) {
+    const path = safePath(key);
+    try {
+      const info = await stat(path);
+      if (info.size > 0) return path;
+    } catch {
+      // reported below
+    }
+    throw new Error("Media object is unavailable");
+  }
   async remove(key: string) {
     await rm(safePath(key), { recursive: true, force: true });
   }
+  async describe() {
+    return {
+      driver: this.driver,
+      ready: true,
+      detail: `local disk at ${resolve(/*turbopackIgnore: true*/ process.env.DATA_DIR || "data")}`,
+    };
+  }
 }
-export const storage = new LocalStorageProvider();
 export function mediaKey(
   userId: string,
   generationId: string | null,

@@ -14,6 +14,7 @@ import { listing, detail, ownedGeneration } from "./repository";
 import { readFormData } from "../lib/body";
 import { saveUpload, MAX_UPLOAD } from "../storage/uploads";
 import { pool } from "../db";
+import { storage } from "../storage";
 import { run } from "../render/process";
 import { getRedis } from "../queues/redis";
 const id = z.string().uuid();
@@ -69,7 +70,7 @@ export async function readRoute(userId: string, path: string[], url: URL) {
       resend: !!process.env.RESEND_API_KEY && !!process.env.RESEND_FROM_EMAIL,
       model: process.env.AGNES_VIDEO_MODEL || "agnes-video-2.5",
       concurrency: Number(process.env.VIDEO_GENERATION_CONCURRENCY || 3),
-      storage: "Persistent local storage",
+      ...(await storage.describe()),
     };
   }
   throw new Error("NOT_FOUND");

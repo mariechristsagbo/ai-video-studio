@@ -13,7 +13,7 @@ import {
 } from "../db/schema";
 import { createGeneration, shotInput, buildComposition } from "../domain/video";
 import { ownedGeneration, detail } from "./repository";
-import { safePath } from "../storage/local";
+
 export async function create(userId: string, input: unknown) {
   const data = createGeneration.parse(input);
   return db.transaction(async (tx) => {
@@ -271,7 +271,7 @@ export async function queueRender(id: string, userId: string, force = false) {
     const composition = {
       ...buildComposition(
         list.map((s) => ({
-          path: safePath(asset(s.clipId)!.path),
+          path: asset(s.clipId)!.path,
           duration: s.duration,
           transition: s.transition,
         })),
@@ -281,8 +281,8 @@ export async function queueRender(id: string, userId: string, force = false) {
       script: g.script,
       burnCaptions: g.burnCaptions,
       clipAudio: g.clipAudio,
-      narration: narration ? safePath(narration.path) : undefined,
-      music: music ? safePath(music.path) : undefined,
+      narration: narration?.path,
+      music: music?.path,
     };
     const [r] = await tx
       .insert(renders)

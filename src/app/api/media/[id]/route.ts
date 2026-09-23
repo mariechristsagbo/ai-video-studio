@@ -6,7 +6,7 @@ import { Readable } from "node:stream";
 import { db } from "@/db";
 import { assets, generations } from "@/db/schema";
 import { currentUser } from "@/auth/session";
-import { safePath, verifyAsset } from "@/storage/local";
+import { storage, verifyAsset } from "@/storage";
 export const runtime = "nodejs";
 export async function GET(
   request: Request,
@@ -37,7 +37,14 @@ export async function GET(
       const user = await currentUser();
       if (!user || user.id !== asset.userId) return new Response(null, { status: 404 });
     }
-    const path = safePath(asset.path),
+    // Opt-in: hand playback to the CDN with a short-lived signed URL instead of proxying.
+    if (
+      process.env.CLOUDINARY_DIRECT_DELIVERY === "true" &&
+      storage.directUrl &&
+      !url.searchParams.has("download")
+    )
+      return Response.redirect(storage.directUrl(asset.path, 900), 302);
+    const path = await storage.materialize(asset.path),
       { size } = await stat(path);
     let start = 0,
       end = size - 1,

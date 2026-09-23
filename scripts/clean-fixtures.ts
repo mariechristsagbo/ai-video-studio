@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { pool } from "../src/db";
-import { storage } from "../src/storage/local";
+import { storage } from "../src/storage";
 // Removes every verification identity and its media. Only reserved example.invalid
 // addresses are touched, so no real account can ever be deleted by this script.
 const users = await pool.query<{ id: string; email: string }>(

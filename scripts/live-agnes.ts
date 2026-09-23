@@ -6,7 +6,7 @@ import {
   AGNES_DEFAULT_VIDEO_MODEL,
   AGNES_DEFAULT_TEXT_MODEL,
 } from "../src/providers/agnes";
-import { downloadPublic } from "../src/storage/local";
+import { downloadPublic } from "../src/storage";
 import { probe } from "../src/render/process";
 const provider = new AgnesProvider();
 const record: Record<string, unknown> = {

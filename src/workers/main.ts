@@ -14,7 +14,7 @@ import { plan } from "./planning";
 import { generateShot, uncertain } from "./shot";
 import { render } from "./rendering";
 import { refreshGeneration } from "../generations/repository";
-import { storage, downloadPublic } from "../storage/local";
+import { storage, downloadPublic } from "../storage";
 export async function processJob(
   id: string,
   provider: TextProvider & VideoProvider = new AgnesProvider(),

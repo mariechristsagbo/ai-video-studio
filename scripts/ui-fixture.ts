@@ -4,7 +4,7 @@ import { eq, inArray } from "drizzle-orm";
 import { db, pool } from "../src/db";
 import { assets, generations, renders, scenes, shots } from "../src/db/schema";
 import { createAuth } from "../src/auth";
-import { storage, safePath } from "../src/storage/local";
+import { storage } from "../src/storage";
 import { renderVideo, thumbnail } from "../src/render/render";
 import { buildComposition } from "../src/domain/video";
 
@@ -122,7 +122,8 @@ for (const [index, source] of clipSources.entries()) {
   const key = `users/${userId}/generations/${generation.id}/shots/fixture-${index}.mp4`;
   await storage.put(key, await readFile(`data/verification/fixture-${source}.mp4`));
   const thumbKey = `users/${userId}/generations/${generation.id}/shots/fixture-${index}.jpg`;
-  await thumbnail(safePath(key), safePath(thumbKey));
+  await thumbnail(await storage.materialize(key), storage.localPath(thumbKey));
+  await storage.upload(thumbKey);
   const [clip] = await db
     .insert(assets)
     .values({
@@ -147,7 +148,7 @@ for (const [index, source] of clipSources.entries()) {
     })
     .returning();
   clipPaths.push({
-    path: safePath(key),
+    path: key,
     duration: 8,
     transition: index === 0 ? "crossfade" : "cut",
   });
@@ -176,7 +177,7 @@ const composition = {
 };
 // A real render so the editor shows an actual playable final video.
 const renderKey = `users/${userId}/generations/${generation.id}/renders/fixture-final.mp4`;
-const renderPath = safePath(renderKey);
+const renderPath = storage.localPath(renderKey);
 const renderInfo = await renderVideo(composition, renderPath);
 const [renderAsset] = await db
   .insert(assets)

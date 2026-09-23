@@ -1,13 +1,7 @@
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { assets, shots, jobs, generations, characters } from "../db/schema";
-import {
-  storage,
-  mediaKey,
-  safePath,
-  signedAssetUrl,
-  downloadPublic,
-} from "../storage/local";
+import { storage, mediaKey, signedAssetUrl, downloadPublic } from "../storage";
 import { thumbnail, finalFrame } from "../render/render";
 import { probe } from "../render/process";
 import { ProviderError, type VideoProvider, type VideoInput } from "../providers/agnes";
@@ -49,11 +43,12 @@ export async function generateShot(
     const bytes = await download(status.url),
       key = mediaKey(g.userId, g.id, "mp4");
     await storage.put(key, bytes);
-    const info = await probe(safePath(key));
+    const info = await probe(await storage.materialize(key));
     if (!info.streams.some((s) => s.codec_type === "video") || info.duration < 1)
       throw new Error("Provider returned invalid video");
     const thumbKey = mediaKey(g.userId, g.id, "jpg");
-    await thumbnail(safePath(key), safePath(thumbKey));
+    await thumbnail(await storage.materialize(key), storage.localPath(thumbKey));
+    await storage.upload(thumbKey);
     await db.transaction(async (tx) => {
       const [current] = await tx
         .select()
@@ -133,7 +128,8 @@ export async function generateShot(
     });
     if (!clip) throw new Error("Continuity clip is unavailable");
     const frame = mediaKey(g.userId, g.id, "jpg");
-    await finalFrame(safePath(clip.path), safePath(frame));
+    await finalFrame(await storage.materialize(clip.path), storage.localPath(frame));
+    await storage.upload(frame);
     const [asset] = await db
       .insert(assets)
       .values({
@@ -152,8 +148,13 @@ export async function generateShot(
       where: and(eq(assets.id, reference), eq(assets.userId, g.userId)),
     });
     if (!asset) throw new Error("Reference is unavailable");
-    if (input.mode === "keyframe") input.firstFrame = signedAssetUrl(asset.id);
-    if (input.mode === "reference") input.images = [signedAssetUrl(asset.id)];
+    // Cloudinary assets ship with their own signed URL; local storage falls back to the
+    // application's expiring link, which needs a public HTTPS application URL.
+    const referenceUrl = storage.directUrl
+      ? storage.directUrl(asset.path, 3600)
+      : signedAssetUrl(asset.id);
+    if (input.mode === "keyframe") input.firstFrame = referenceUrl;
+    if (input.mode === "reference") input.images = [referenceUrl];
   }
   if (input.mode !== "text" && !input.firstFrame && !input.images?.length)
     throw new Error("Choose a reference image before generating");

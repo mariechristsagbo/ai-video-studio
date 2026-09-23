@@ -2,7 +2,7 @@ import "dotenv/config";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createAuth } from "../src/auth";
-import { storage } from "../src/storage/local";
+import { storage } from "../src/storage";
 import { pool } from "../src/db";
 const base = process.env.BETTER_AUTH_URL!;
 let link = "";
