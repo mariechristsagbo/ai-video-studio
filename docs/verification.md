@@ -22,7 +22,7 @@ Everything below was executed on this machine against the real repository, a rea
 | `pnpm install --frozen-lockfile` | pass — 457+ packages, lockfile unchanged |
 | `pnpm lint` | pass — 0 errors, 0 warnings |
 | `pnpm typecheck` | pass — `tsc --noEmit`, 0 errors |
-| `pnpm test` | pass — 4 files, 15 tests |
+| `pnpm test` | pass — 4 files, 15 tests (domain, provider, storage, HTTP error mapping) |
 | `pnpm build` | pass — Next.js production build, all routes compiled |
 | `pnpm db:generate` | pass — `drizzle/0000_graceful_sentinel.sql` committed |
 | `pnpm db:migrate` | pass — applied to the real Neon database (verified empty schema first) |
@@ -99,6 +99,26 @@ The render exercises clip normalization (scale/crop/setsar/fps), mixed transitio
   An earlier attempt without a model name returned `400 Model name not specified` — proof the request reaches provider validation with the documented payload shape. No further paid attempts were made after the quota response.
 - **Resend — API reachable, sending unverified.** `GET https://api.resend.com/domains` returned `200` with one **verified** domain (`aigenstudio.app`). Magic-link delivery is implemented server-side through Resend, but no real inbox delivery was attempted because `RESEND_FROM_EMAIL` and an authorized recipient were not supplied.
 - **Duplicates were deliberately avoided.** When the adapter cannot know whether a submit succeeded (timeout, connection reset, 5xx with no response), the submission is committed as `SUBMITTING` before the call, and failure to determine the outcome persists `UNCERTAIN` with a manual-retry path that warns about possible duplicate charges.
+
+## HTTP behaviour and ownership (real server, production build)
+
+Checked with the production server against the real Neon database:
+
+| Request | Result |
+| --- | --- |
+| `GET /api/studio/generations` without a session | `401 Sign in to continue.` |
+| `GET /api/media/<uuid>` without a session | `404` (media existence is never confirmed to anonymous callers) |
+| `POST /api/studio/generations` with a foreign `Origin` | `403` |
+| `POST /api/studio/generations` with no `Origin` | `403` |
+| `POST /api/studio/generations/<uuid not owned>/upload` | `404` (ownership is resolved before the upload body is read) |
+| `GET /api/media/<render asset>` with a session | `200`, `video/mp4`, `862 933` bytes, `X-Content-Type-Options: nosniff` |
+| `GET /api/media/<render asset>` with `Range: bytes=0-99` | `206`, exactly `100` bytes, `Content-Range` set (enables video seeking) |
+| `GET /api/media/<render asset>?download=1` | `200`, `Content-Disposition: attachment; filename="studio-<id>.mp4"` |
+| `GET /does-not-exist` | `404` rendered by the app not-found page |
+
+A browser-driven write was also verified end to end: opening a generation, switching to **Audio & captions**, and toggling **Burn captions** issued an authenticated edit and moved the generation revision from `1` to `2` in Neon.
+
+After the verification run, the inventory of every application table (`users`, `generations`, `scenes`, `shots`, `renders`, `assets`, `jobs`, `characters`) was `0`, confirming that the smoke fixtures and UI fixtures clean up after themselves.
 
 ## Interface verification (real browser, production build)
 

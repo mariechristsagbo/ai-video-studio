@@ -111,7 +111,14 @@ docker compose up --build          # web + worker + Redis + shared media volume
 docker compose exec web pnpm db:migrate
 ```
 
-The image installs FFmpeg and DejaVu fonts (captions). Compose exposes the app on `127.0.0.1:3000` only, keeps Redis behind an internal network, and persists both media and Redis data in named volumes. Production expects an external `DATABASE_URL` (Neon); PostgreSQL is deliberately not containerized.
+The image installs FFmpeg and DejaVu fonts (captions). Compose exposes the app on `127.0.0.1:3000` only, keeps Redis behind an internal network, and persists both media and Redis data in named volumes. Compose overrides `REDIS_URL` for its own containers (`COMPOSE_REDIS_URL`, default `redis://redis:6379`) while your `.env` value keeps working for local `pnpm dev` and `pnpm worker`. Production expects an external `DATABASE_URL` (Neon); PostgreSQL is deliberately not containerized.
+
+For local work without Compose:
+
+```bash
+docker run -d --name ai-video-studio-redis -p 127.0.0.1:6397:6379 redis:7-alpine
+# then set REDIS_URL=redis://127.0.0.1:6397 in .env
+```
 
 ## Production deployment
 
