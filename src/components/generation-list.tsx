@@ -22,7 +22,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SelectLabel } from "./select-label";
@@ -305,7 +304,12 @@ export function GenerationList({ overview = false }: { overview?: boolean }) {
                       {g.aspectRatio} · {g.targetDuration}s
                     </small>
                   </div>
-                  <h3 className="text-[15px] leading-snug font-semibold">{g.title}</h3>
+                  <h3
+                    className="line-clamp-2 text-[15px] leading-snug font-semibold break-words"
+                    title={g.title}
+                  >
+                    {g.title}
+                  </h3>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{g.contentFormat}</span>
                     <span>·</span>

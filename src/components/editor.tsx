@@ -11,6 +11,7 @@ import {
   Trash,
   TickCircle,
 } from "iconsax-react";
+import { LoaderCircle } from "lucide-react";
 import { api } from "./client-api";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -38,6 +39,15 @@ const MODE_OPTIONS: Option[] = [
   { value: "keyframe", label: "Keyframe" },
   { value: "reference", label: "Reference" },
 ];
+/** The pipeline as the user sees it, mapped onto the studio's status model. */
+const PIPELINE = ["Brief & storyboard", "Shot videos", "Montage", "Ready"];
+function pipelineStage(status: string, clips: number) {
+  if (status === "COMPLETED") return 3;
+  if (["READY_TO_RENDER", "RENDERING"].includes(status)) return 2;
+  if (["STORYBOARD_READY", "QUEUED", "GENERATING"].includes(status)) return 1;
+  if (status === "FAILED" || status === "UNCERTAIN") return clips > 0 ? 1 : 0;
+  return 0;
+}
 const TRANSITION_OPTIONS: Option[] = [
   { value: "cut", label: "Cut" },
   { value: "fade", label: "Fade" },
@@ -93,7 +103,8 @@ export function Editor({ id }: { id: string }) {
     [tab, setTab] = useState("storyboard"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [final, setFinal] = useState(false);
+    [final, setFinal] = useState(false),
+    [showPrompt, setShowPrompt] = useState(false);
   const load = useCallback(async () => {
     const d = await api<Detail>(`generations/${id}`);
     setData(d);
@@ -150,6 +161,22 @@ export function Editor({ id }: { id: string }) {
           <Skeleton className="h-4 w-24" />
           <Skeleton className="h-4 w-28" />
         </div>
+        <div className="mb-5 flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center gap-2.5">
+            <Skeleton className="size-2 shrink-0 rounded-full" />
+            <Skeleton className="h-4 w-56" />
+            <Skeleton className="ml-auto h-3 w-8" />
+          </div>
+          <Skeleton className="h-1.5 w-full rounded-full" />
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            {["w-32", "w-24", "w-20", "w-16"].map((width) => (
+              <div className="flex items-center gap-1.5" key={width}>
+                <Skeleton className="size-2 shrink-0 rounded-full" />
+                <Skeleton className={`h-3 ${width}`} />
+              </div>
+            ))}
+          </div>
+        </div>
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px]">
           <div className="flex flex-col gap-4">
             <Skeleton className="min-h-[310px] w-full rounded-lg" />
@@ -205,16 +232,44 @@ export function Editor({ id }: { id: string }) {
   const locked = ["PLANNING", "RENDERING"].includes(g.status),
     edit = (body: unknown) =>
       act("edit", { revision: g.revision, ...(body as object) });
+  const stage = pipelineStage(g.status, completed),
+    running = ["PLANNING", "QUEUED", "GENERATING", "RENDERING"].includes(g.status),
+    percent = progress(g.status, completed, shots.length),
+    stageHint =
+      stage === 0
+        ? g.status === "PLANNING"
+          ? "Writing your brief, narration and storyboard…"
+          : "Nothing started yet"
+        : stage === 1
+          ? `${completed} of ${shots.length} shot videos ready${generating ? ` · ${generating} generating` : ""}${queued ? ` · ${queued} queued` : ""}${failed ? ` · ${failed} failed` : ""}`
+          : stage === 2
+            ? g.status === "RENDERING"
+              ? "Assembling the shots into your film…"
+              : "Every shot is ready — run the montage"
+            : "Your film is ready";
   return (
     <>
-      <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{g.title}</h1>
-          <div className="mt-3 flex items-center gap-3">
+      <header className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <h1
+            className={`text-xl font-semibold tracking-tight ${showPrompt ? "" : "line-clamp-2"}`}
+          >
+            {g.title}
+          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
             <StatusPill status={g.status} />
             <small className="text-xs text-muted-foreground">
               {g.aspectRatio} · {g.platform} · {g.targetDuration}s target
             </small>
+            {g.title.length > 90 && (
+              <button
+                className="text-xs text-primary underline-offset-4 hover:underline"
+                onClick={() => setShowPrompt((v) => !v)}
+                type="button"
+              >
+                {showPrompt ? "Show less" : "Show full prompt"}
+              </button>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -259,26 +314,59 @@ export function Editor({ id }: { id: string }) {
         </div>
       )}
       {g.error && <div className={errorClass}>{g.error}</div>}
-      {g.status === "PLANNING" && (
-        <div className={noticeClass}>
-          Writing your brief, narration, and storyboard. This may take a few minutes.
-          You can leave and return later.
+      <Card className="mb-5 gap-0 p-4">
+        <div className="flex items-center gap-2.5">
+          {running ? (
+            <LoaderCircle className="size-4 shrink-0 animate-spin text-primary" />
+          ) : (
+            <span
+              className={`size-2 shrink-0 rounded-full ${g.status === "COMPLETED" ? "bg-primary" : "bg-muted-foreground"}`}
+            />
+          )}
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">
+            {stageHint}
+          </span>
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+            {percent}%
+          </span>
         </div>
-      )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <small className="text-xs text-muted-foreground">
-          {completed} / {shots.length} shots completed
-        </small>
-        <small className="text-xs text-muted-foreground">
-          {generating} generating · {queued} queued · {failed} failed
-        </small>
-      </div>
-      <div className="my-2.5 h-1.5 overflow-hidden rounded-full bg-secondary">
-        <div
-          className="h-full bg-primary transition-[width] duration-300"
-          style={{ width: `${progress(g.status, completed, shots.length)}%` }}
-        />
-      </div>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary">
+          <div
+            className={`h-full rounded-full bg-primary transition-[width] duration-500 ${running ? "animate-pulse" : ""}`}
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+        <ol className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+          {PIPELINE.map((label, index) => {
+            const done = index < stage || g.status === "COMPLETED",
+              current = index === stage && g.status !== "COMPLETED";
+            return (
+              <li className="flex items-center gap-1.5 text-xs" key={label}>
+                {done ? (
+                  <TickCircle size={14} variant="Bold" className="text-primary" />
+                ) : current ? (
+                  running ? (
+                    <LoaderCircle className="size-3.5 animate-spin text-primary" />
+                  ) : (
+                    <span className="size-2 rounded-full bg-primary" />
+                  )
+                ) : (
+                  <span className="size-2 rounded-full border border-muted-foreground/40" />
+                )}
+                <span
+                  className={
+                    done || current
+                      ? "font-medium text-foreground"
+                      : "text-muted-foreground"
+                  }
+                >
+                  {label}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      </Card>
       <div className="mb-5 mt-6 flex gap-6 border-b border-border">
         {["storyboard", "script & scenes", "audio & captions"].map((t) => (
           <button
