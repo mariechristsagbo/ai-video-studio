@@ -14,10 +14,39 @@ import {
 import { detail, ownedGeneration } from "../src/generations/repository";
 import { processJob, reconcile } from "../src/workers/main";
 import { queueNames, connection, getQueues } from "../src/queues";
+import { storage, safePath } from "../src/storage/local";
+import { createAuth } from "../src/auth";
+import { assets } from "../src/db/schema";
+import { probe } from "../src/render/process";
 import { ProviderError, type VideoStatus } from "../src/providers/agnes";
-const session = JSON.parse(
-  await readFile("data/verification/session.json", "utf8"),
-) as { userId: string };
+// The smoke test owns its identity so repeated runs never depend on earlier ones.
+const authBase = process.env.BETTER_AUTH_URL!;
+let magicLink = "";
+const auth = createAuth(async (mail) => {
+  magicLink = mail.url;
+});
+const smokeEmail = `workflow-fixture-${Date.now()}@example.invalid`;
+await auth.handler(
+  new Request(`${authBase}/api/auth/sign-in/magic-link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: authBase },
+    body: JSON.stringify({
+      email: smokeEmail,
+      name: "Workflow Fixture",
+      callbackURL: "/dashboard",
+    }),
+  }),
+);
+const session = await auth.api.getSession({
+  headers: new Headers({
+    cookie: (await auth.handler(new Request(magicLink))).headers
+      .getSetCookie()
+      .map((value) => value.split(";")[0])
+      .join("; "),
+  }),
+});
+if (!session?.user) throw new Error("Fixture identity could not be authenticated");
+const userId = session.user.id;
 let calls = 0,
   uncertain = false;
 const script =
@@ -110,62 +139,53 @@ const wait = async (test: () => Promise<boolean>, timeout = 180000) => {
   throw new Error("Workflow deadline reached");
 };
 try {
-  const g = await create(session.userId, {
+  const g = await create(userId, {
     topic: "Fixture: What if city connections disappeared?",
     targetDuration: 30,
     contentFormat: "Cinematic Explainer",
     visualStyle: "Cinematic Realistic",
   });
   await wait(
-    async () =>
-      (await ownedGeneration(g.id, session.userId)).status === "STORYBOARD_READY",
+    async () => (await ownedGeneration(g.id, userId)).status === "STORYBOARD_READY",
   );
-  let d = await detail(g.id, session.userId);
+  let d = await detail(g.id, userId);
   assert.equal(d.shots.length, 4);
   await assert.rejects(() => ownedGeneration(g.id, "another-user"), /NOT_FOUND/);
-  await editGeneration(g.id, session.userId, {
+  await editGeneration(g.id, userId, {
     revision: d.generation.revision,
     shot: {
       id: d.shots[0].id,
       data: { ...d.shots[0], videoPrompt: "Edited fixture prompt" },
     },
   });
-  await queueShots(g.id, session.userId);
+  await queueShots(g.id, userId);
   await wait(async () =>
-    (await detail(g.id, session.userId)).shots.every((s) => s.status === "COMPLETED"),
+    (await detail(g.id, userId)).shots.every((s) => s.status === "COMPLETED"),
   );
   assert.equal(calls, 4);
-  await queueShots(g.id, session.userId);
+  await queueShots(g.id, userId);
   await reconcile();
   assert.equal(calls, 4);
-  d = await detail(g.id, session.userId);
+  d = await detail(g.id, userId);
   const target = d.shots[0],
     previous = target.clipId;
-  await queueShots(g.id, session.userId, target.id);
-  assert.equal((await detail(g.id, session.userId)).shots[0].clipId, previous);
-  await wait(
-    async () => (await detail(g.id, session.userId)).shots[0].status === "COMPLETED",
-  );
+  await queueShots(g.id, userId, target.id);
+  assert.equal((await detail(g.id, userId)).shots[0].clipId, previous);
+  await wait(async () => (await detail(g.id, userId)).shots[0].status === "COMPLETED");
   assert.equal(calls, 5);
-  assert.notEqual((await detail(g.id, session.userId)).shots[0].clipId, previous);
+  assert.notEqual((await detail(g.id, userId)).shots[0].clipId, previous);
   uncertain = true;
-  await queueShots(g.id, session.userId, target.id);
-  await wait(
-    async () => (await detail(g.id, session.userId)).shots[0].status === "UNCERTAIN",
-  );
+  await queueShots(g.id, userId, target.id);
+  await wait(async () => (await detail(g.id, userId)).shots[0].status === "UNCERTAIN");
   assert.equal(calls, 6);
-  await queueShots(g.id, session.userId);
-  assert.equal((await detail(g.id, session.userId)).shots[0].status, "UNCERTAIN");
-  await queueShots(g.id, session.userId, target.id, true);
-  await wait(
-    async () => (await detail(g.id, session.userId)).shots[0].status === "COMPLETED",
-  );
+  await queueShots(g.id, userId);
+  assert.equal((await detail(g.id, userId)).shots[0].status, "UNCERTAIN");
+  await queueShots(g.id, userId, target.id, true);
+  await wait(async () => (await detail(g.id, userId)).shots[0].status === "COMPLETED");
   assert.equal(calls, 7);
   // Simulate lost Redis delivery by removing a waiting queue entry. The DB outbox reconstructs it.
-  await queueShots(g.id, session.userId, d.shots[1].id);
-  await wait(
-    async () => (await detail(g.id, session.userId)).shots[1].status === "COMPLETED",
-  );
+  await queueShots(g.id, userId, d.shots[1].id);
+  await wait(async () => (await detail(g.id, userId)).shots[1].status === "COMPLETED");
   const [durable] = await db
     .insert(jobs)
     .values({
@@ -183,16 +203,28 @@ try {
       "COMPLETED",
   );
   assert.equal(calls, 8);
-  await queueRender(g.id, session.userId);
+  await queueRender(g.id, userId);
   await wait(
-    async () => (await ownedGeneration(g.id, session.userId)).status === "COMPLETED",
+    async () => (await ownedGeneration(g.id, userId)).status === "COMPLETED",
     300000,
   );
-  d = await detail(g.id, session.userId);
+  d = await detail(g.id, userId);
   assert.ok(d.renders[0].assetId);
   const before = d.renders.length;
-  await queueRender(g.id, session.userId);
-  assert.equal((await detail(g.id, session.userId)).renders.length, before);
+  await queueRender(g.id, userId);
+  assert.equal((await detail(g.id, userId)).renders.length, before);
+  // The rendered file must be a real, correctly shaped MP4 on disk.
+  const [rendered] = await db
+    .select()
+    .from(assets)
+    .where(eq(assets.id, d.renders[0].assetId!));
+  const renderedInfo = await probe(safePath(rendered.path));
+  const renderedVideo = renderedInfo.streams.find((s) => s.codec_type === "video");
+  assert.equal(renderedVideo?.width, 1080);
+  assert.equal(renderedVideo?.height, 1920);
+  assert.equal(renderedVideo?.codec_name, "h264");
+  assert.ok(renderedInfo.streams.some((s) => s.codec_type === "audio"));
+  assert.ok(Math.abs(renderedInfo.duration - d.generation.timelineDuration!) < 1);
   await writeFile(
     "data/verification/workflow.json",
     JSON.stringify(
@@ -203,6 +235,7 @@ try {
         providerSubmissions: calls,
         renderId: d.renders[0].id,
         assetId: d.renders[0].assetId,
+        renderedProbe: renderedInfo,
         checks: [
           "Neon persistence",
           "official auth session",
@@ -215,12 +248,16 @@ try {
           "idempotent shot delivery",
           "versioned render",
           "real FFmpeg",
+          "rendered probe: 1080x1920 h264 + audio",
         ],
       },
       null,
       2,
     ),
   );
+  // Remove the labelled fixture project, identity and media; the smoke test leaves no residue.
+  await storage.remove(`users/${userId}/generations/${g.id}`);
+  await db.delete(generations).where(eq(generations.id, g.id));
   console.log(
     JSON.stringify({
       workflowSmoke: "passed",
@@ -236,5 +273,8 @@ try {
 } finally {
   await Promise.all(workers.map((w) => w.close()));
   await Promise.all(Object.values(getQueues()).map((q) => q.close()));
+  // Remove the fixture identity and any media it produced.
+  await storage.remove(`users/${userId}`);
+  await pool.query("delete from users where email = $1", [smokeEmail]);
   await pool.end();
 }

@@ -2,6 +2,7 @@ import "dotenv/config";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createAuth } from "../src/auth";
+import { storage } from "../src/storage/local";
 import { pool } from "../src/db";
 const base = process.env.BETTER_AUTH_URL!;
 let link = "";
@@ -36,11 +37,15 @@ assert.ok(session?.user.emailVerified);
 const again = await auth.handler(new Request(link));
 assert.ok(!again.headers.getSetCookie().some((c) => c.includes("session_token=")));
 await mkdir("data/verification", { recursive: true });
+// The session cookie is a live credential, so only non-secret identifiers are retained.
 await writeFile(
   "data/verification/session.json",
-  JSON.stringify({ cookie, userId: session!.user.id, email }),
+  JSON.stringify({ userId: session!.user.id, email }, null, 2),
   { mode: 0o600 },
 );
+// Remove the smoke identity and its media so no test data lingers.
+await storage.remove(`users/${session!.user.id}`);
+await pool.query("delete from users where id = $1", [session!.user.id]);
 console.log(
   JSON.stringify({
     authSmoke: "passed",
