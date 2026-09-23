@@ -229,7 +229,7 @@ export function Editor({ id }: { id: string }) {
       renders.find((r) => r.id === g.finalRenderId && r.status === "COMPLETED") ||
       renders.find((r) => r.status === "COMPLETED"),
     preview = (final ? latest?.assetId : shot?.clipId) || latest?.assetId;
-  const locked = ["PLANNING", "RENDERING"].includes(g.status),
+  const locked = ["PLANNING", "QUEUED", "GENERATING", "RENDERING"].includes(g.status),
     edit = (body: unknown) =>
       act("edit", { revision: g.revision, ...(body as object) });
   const stage = pipelineStage(g.status, completed),
