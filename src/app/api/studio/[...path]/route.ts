@@ -23,15 +23,16 @@ export async function POST(request: Request, context: Context) {
       path[0] === "generations" &&
       (!path[2] || ["generate", "render", "replan"].includes(path[2]))
     ) {
-      const client = getRedis();
-      const key = `rate:${user.id}:${Math.floor(Date.now() / 60000)}`;
-      const count = await client.incr(key);
-      if (count === 1) await client.expire(key, 70);
-      if (count > 20)
-        return Response.json(
-          { error: "Too many requests. Try again in a minute." },
-          { status: 429 },
-        );
+      let count = 0;
+      try {
+        const client = getRedis();
+        const key = `rate:${user.id}:${Math.floor(Date.now() / 60000)}`;
+        count = await client.incr(key);
+        if (count === 1) await client.expire(key, 70);
+      } catch {
+        throw new Error("UNAVAILABLE");
+      }
+      if (count > 20) throw new Error("RATE_LIMITED");
     }
     const result = await writeRoute(user.id, path, request);
     return Response.json(result.data, { status: result.status ?? 200 });
