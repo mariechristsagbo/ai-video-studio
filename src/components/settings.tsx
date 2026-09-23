@@ -1,80 +1,164 @@
 "use client";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { TickCircle } from "iconsax-react";
 import { useEffect, useState } from "react";
-import { Card } from "./ui/card";
-import { Badge } from "./ui/badge";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { api } from "./client-api";
-type Status = {
-  database: boolean;
-  redis: boolean;
-  ffmpeg: boolean;
-  agnes: boolean;
-  resend: boolean;
-  model: string;
-  concurrency: number;
-  storage: string;
-  storageReady: boolean;
-  storageDetail: string;
-};
+import { Button } from "./ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "./ui/form";
+import { Input } from "./ui/input";
+import { Skeleton } from "./ui/skeleton";
+
+const profileSchema = z.object({
+  firstName: z.string().trim().min(1, "Enter your first name.").max(60, "60 characters maximum."),
+  lastName: z.string().trim().min(1, "Enter your last name.").max(60, "60 characters maximum."),
+});
+type ProfileValues = z.infer<typeof profileSchema>;
+type Profile = ProfileValues & { email: string; name: string };
+
 export function Settings() {
-  const [data, setData] = useState<Status>(),
-    [error, setError] = useState("");
+  const [profile, setProfile] = useState<Profile>(),
+    [error, setError] = useState(""),
+    [saveError, setSaveError] = useState(""),
+    [saved, setSaved] = useState(false);
+  const form = useForm<ProfileValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: { firstName: "", lastName: "" },
+  });
   useEffect(() => {
-    void api<Status>("settings")
-      .then(setData)
-      .catch((e) => setError(e.message));
-  }, []);
+    void api<Profile>("profile")
+      .then((data) => {
+        setProfile(data);
+        form.reset({ firstName: data.firstName, lastName: data.lastName });
+      })
+      .catch((e: Error) => setError(e.message));
+  }, [form]);
+  async function onSubmit(values: ProfileValues) {
+    setSaved(false);
+    setSaveError("");
+    try {
+      const updated = await api<Profile>("profile", values);
+      setProfile(updated);
+      form.reset({ firstName: updated.firstName, lastName: updated.lastName });
+      setSaved(true);
+    } catch (e) {
+      setSaveError((e as Error).message);
+    }
+  }
   return (
-    <div className="max-readable">
-      <header className="page-top">
-        <div>
-          <div className="eyebrow">Under the hood</div>
-          <h1>Settings</h1>
-          <p>Your studio’s connections and runtime status.</p>
-        </div>
+    <div className="max-w-3xl space-y-8">
+      <header className="space-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="text-sm text-muted-foreground">
+          Your profile details, used in the studio and on shared documents.
+        </p>
       </header>
-      {error && <div className="error">{error}</div>}
-      <Card>
-        <h2>System health</h2>
-        {!data ? (
-          <div className="loading" />
-        ) : (
-          <>
-            {[
-              ["Database", data.database],
-              ["Redis queue", data.redis],
-              ["FFmpeg", data.ffmpeg],
-              ["Agnes API configured", data.agnes],
-              ["Resend email configured", data.resend],
-              ["Media storage", data.storageReady],
-            ].map(([label, ok]) => (
-              <div className="setting-row" key={String(label)}>
-                <span>{String(label)}</span>
-                <Badge status={ok ? "COMPLETED" : "FAILED"}>
-                  {ok ? "Ready" : "Not configured / unavailable"}
-                </Badge>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {!profile && !error ? (
+        <SettingsSkeleton />
+      ) : (
+        profile && (
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Profile</CardTitle>
+                  <CardDescription>How you are named across Brio.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>First name</FormLabel>
+                          <FormControl>
+                            <Input autoComplete="given-name" placeholder="Marie" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Last name</FormLabel>
+                          <FormControl>
+                            <Input autoComplete="family-name" placeholder="Sagbo" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input value={profile.email} readOnly disabled />
+                    </FormControl>
+                    <FormDescription>
+                      Your sign-in address. Magic links are sent here, so it cannot be changed from
+                      this page.
+                    </FormDescription>
+                  </FormItem>
+                </CardContent>
+              </Card>
+              <div className="flex items-center gap-4">
+                <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
+                  {form.formState.isSubmitting ? "Saving…" : "Save changes"}
+                </Button>
+                {saved && (
+                  <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <TickCircle size={16} variant="Bold" className="text-primary" />
+                    Profile updated.
+                  </span>
+                )}
+                {saveError && <span className="text-sm text-destructive">{saveError}</span>}
               </div>
-            ))}
-            <div className="setting-row">
-              <span>Video model</span>
-              <small>{data.model}</small>
-            </div>
-            <div className="setting-row">
-              <span>Video concurrency</span>
-              <small>{data.concurrency} jobs</small>
-            </div>
-            <div className="setting-row">
-              <span>Storage</span>
-              <small>
-                {data.storage} · {data.storageDetail}
-              </small>
-            </div>
-          </>
-        )}
-      </Card>
-      <div className="notice">
-        API keys and connection strings are managed server-side through environment
-        variables. No secrets are displayed here.
-      </div>
+            </form>
+          </Form>
+        )
+      )}
     </div>
+  );
+}
+
+// Mirrors the profile form so the page does not jump once the data arrives.
+function SettingsSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="mt-2 h-4 w-56" />
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid gap-5 sm:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <div key={index} className="space-y-2.5">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ))}
+        </div>
+        <div className="space-y-2.5">
+          <Skeleton className="h-4 w-14" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-3 w-2/3" />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

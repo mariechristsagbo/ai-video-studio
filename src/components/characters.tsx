@@ -3,10 +3,13 @@ import { useState, useEffect } from "react";
 import { Profile2User, Add } from "iconsax-react";
 import { api } from "./client-api";
 import { Card } from "./ui/card";
-import { Input, Textarea } from "./ui/input";
+import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import type { characters } from "@/db/schema";
 type Character = typeof characters.$inferSelect;
+const labelClass = "mb-2 block text-sm font-medium text-foreground";
+const textareaClass =
+  "w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
 export function Characters() {
   const [list, setList] = useState<Character[]>([]),
     [editing, setEditing] = useState<Character>(),
@@ -19,38 +22,49 @@ export function Characters() {
   }, []);
   return (
     <>
-      <header className="page-top">
+      <header className="mb-8">
         <div>
-          <div className="eyebrow">A familiar face in every frame</div>
-          <h1>Characters</h1>
-          <p>Reusable identities for a visually consistent story.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Characters</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Reusable identities for a visually consistent story.
+          </p>
         </div>
       </header>
-      {error && <div className="error">{error}</div>}
-      <div className="character-layout">
+      {error && (
+        <div className="my-3 rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div>
           {!list.length ? (
-            <div className="empty">
-              <Profile2User size={38} style={{ margin: "auto" }} />
-              <h2>Build your cast</h2>
-              <p>
+            <div className="rounded-xl border border-dashed border-border px-6 py-[70px] text-center text-muted-foreground">
+              <Profile2User size={38} className="mx-auto block" />
+              <h2 className="mb-2 mt-5 text-lg font-semibold text-foreground">
+                Build your cast
+              </h2>
+              <p className="mx-auto max-w-[380px] text-sm text-muted-foreground">
                 Create reusable characters to keep visual identity consistent across
                 generations.
               </p>
             </div>
           ) : (
-            <div className="grid">
+            <div className="grid gap-5 sm:grid-cols-2">
               {list.map((c) => (
-                <Card className="character-card" key={c.id}>
+                <Card className="p-6" key={c.id}>
                   {c.referenceId && (
-                    <img src={`/api/media/${c.referenceId}`} alt={c.name} />
+                    <img
+                      className="mb-4 h-[150px] w-full rounded-lg object-cover"
+                      src={`/api/media/${c.referenceId}`}
+                      alt={c.name}
+                    />
                   )}
-                  <h2>{c.name}</h2>
-                  <p>{c.description}</p>
-                  <small>
+                  <h2 className="text-lg font-semibold">{c.name}</h2>
+                  <p className="text-sm text-muted-foreground">{c.description}</p>
+                  <small className="text-xs text-muted-foreground">
                     Created {new Date(c.createdAt).toLocaleDateString("en")}
                   </small>
-                  <div className="row space-top">
+                  <div className="mt-5 flex items-center gap-3">
                     <Button
                       size="sm"
                       variant="outline"
@@ -82,8 +96,10 @@ export function Characters() {
             </div>
           )}
         </div>
-        <Card>
-          <h2>{editing ? "Edit character" : "New character"}</h2>
+        <Card className="px-6">
+          <h2 className="text-lg font-semibold">
+            {editing ? "Edit character" : "New character"}
+          </h2>
           <form
             key={editing?.id || "new"}
             onSubmit={async (e) => {
@@ -106,8 +122,8 @@ export function Characters() {
               }
             }}
           >
-            <label className="field">
-              <span>Name</span>
+            <label className="mb-4 block">
+              <span className={labelClass}>Name</span>
               <Input
                 name="name"
                 defaultValue={editing?.name}
@@ -116,32 +132,34 @@ export function Characters() {
                 maxLength={100}
               />
             </label>
-            <label className="field">
-              <span>Description</span>
-              <Textarea
+            <label className="mb-4 block">
+              <span className={labelClass}>Description</span>
+              <textarea
                 name="description"
                 defaultValue={editing?.description}
                 required
                 placeholder="Who is this character?"
                 maxLength={3000}
+                className={`${textareaClass} min-h-[110px]`}
               />
             </label>
-            <label className="field">
-              <span>Stable visual prompt</span>
-              <Textarea
+            <label className="mb-4 block">
+              <span className={labelClass}>Stable visual prompt</span>
+              <textarea
                 name="visualPrompt"
                 defaultValue={editing?.visualPrompt}
                 required
                 placeholder="Appearance, clothing, distinctive features…"
                 maxLength={3000}
+                className={`${textareaClass} min-h-[110px]`}
               />
             </label>
-            <label className="field">
-              <span>Reference image</span>
-              <input
+            <label className="mb-4 block">
+              <span className={labelClass}>Reference image</span>
+              <Input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
-                style={{ width: "100%", fontSize: 11 }}
+                className="h-auto w-full py-1.5 text-xs"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
@@ -158,9 +176,13 @@ export function Characters() {
                   }
                 }}
               />
-              {reference && <small>Reference image attached</small>}
+              {reference && (
+                <small className="mt-2 block text-xs text-muted-foreground">
+                  Reference image attached
+                </small>
+              )}
             </label>
-            <Button disabled={busy} className="full-width">
+            <Button disabled={busy} className="w-full">
               <Add size={16} />
               {editing ? "Save character" : "Create character"}
             </Button>
@@ -168,6 +190,7 @@ export function Characters() {
               <Button
                 variant="ghost"
                 type="button"
+                className="mt-2 w-full"
                 onClick={() => {
                   setEditing(undefined);
                   setReference(null);

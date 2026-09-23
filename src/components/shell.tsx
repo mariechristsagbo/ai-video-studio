@@ -1,18 +1,43 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
 import {
-  VideoPlay,
-  Category,
   AddSquare,
-  VideoHorizontal,
+  Category,
+  Coin,
+  HambergerMenu,
+  Logout,
   Profile2User,
   Setting2,
-  Logout,
-  HambergerMenu,
+  VideoHorizontal,
+  VideoPlay,
 } from "iconsax-react";
-import { Button } from "./ui/button";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import { Badge } from "./ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+} from "./ui/sidebar";
 const links = [
   ["/dashboard", "Overview", Category],
   ["/generations/new", "New generation", AddSquare],
@@ -20,75 +45,149 @@ const links = [
   ["/characters", "Characters", Profile2User],
   ["/settings", "Settings", Setting2],
 ] as const;
+export type ShellCredits = { used: number; allowance: number; remaining: number };
 export function Shell({
   children,
   user,
+  credits,
 }: {
   children: React.ReactNode;
   user: { name: string; email: string };
+  credits: ShellCredits;
 }) {
   const path = usePathname(),
     router = useRouter();
-  const [open, setOpen] = useState(false);
+  const initials = (user.name || user.email).slice(0, 2).toUpperCase();
+  const isActive = (href: string) =>
+    path === href ||
+    (href === "/generations" && path.startsWith("/generations/") && path !== "/generations/new");
+  async function signOut() {
+    await fetch("/api/auth/sign-out", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    router.push("/sign-in");
+    router.refresh();
+  }
   return (
-    <div className="app">
-      <Button
-        variant="outline"
-        className="mobile-menu"
-        aria-label="Toggle navigation"
-        onClick={() => setOpen(!open)}
-      >
-        <HambergerMenu size={20} />
-      </Button>
-      <aside className={`sidebar ${open ? "open" : ""}`}>
-        <Link className="brand" href="/dashboard">
-          <span className="brand-icon">
-            <VideoPlay size={19} variant="Bold" />
-          </span>
-          Video Studio
-        </Link>
-        <div className="nav-label">Workspace</div>
-        <nav>
-          {links.map(([href, label, Icon]) => (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setOpen(false)}
-              className={`nav-link ${path === href || (href === "/generations" && path.startsWith("/generations/") && path !== "/generations/new") ? "active" : ""}`}
-            >
-              <Icon size={19} variant="Linear" />
-              {label}
-            </Link>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="user-row">
-            <div className="avatar">{user.name?.slice(0, 2).toUpperCase() || "ME"}</div>
-            <div className="user-text">
-              {user.name}
-              <small>{user.email}</small>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="space-top"
-            onClick={async () => {
-              await fetch("/api/auth/sign-out", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: "{}",
-              });
-              router.push("/sign-in");
-              router.refresh();
-            }}
-          >
-            <Logout size={16} />
-            Sign out
-          </Button>
-        </div>
-      </aside>
-      <main className="main">{children}</main>
-    </div>
+    <SidebarProvider style={{ "--sidebar-width": "15rem" } as React.CSSProperties}>
+      <Sidebar collapsible="icon">
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton size="lg" asChild tooltip="Brio">
+                <Link href="/dashboard">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                    <VideoPlay size={18} variant="Bold" />
+                  </span>
+                  <span className="grid flex-1 text-left leading-tight">
+                    <span className="truncate text-sm font-semibold tracking-tight">Brio</span>
+                    <span className="truncate text-xs text-muted-foreground">Video studio</span>
+                  </span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {links.map(([href, label, Icon]) => (
+                  <SidebarMenuItem key={href}>
+                    <SidebarMenuButton asChild isActive={isActive(href)} tooltip={label}>
+                      <Link href={href}>
+                        <Icon size={18} variant="Linear" />
+                        <span>{label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton
+                    size="lg"
+                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  >
+                    <Avatar className="size-8 rounded-lg">
+                      <AvatarFallback className="rounded-lg bg-sidebar-accent text-xs font-medium text-sidebar-accent-foreground">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="grid flex-1 text-left leading-tight">
+                      <span className="truncate text-sm font-medium">{user.name || user.email}</span>
+                      <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                    </span>
+                    <Badge
+                      variant="secondary"
+                      className="ml-auto gap-1 tabular-nums group-data-[collapsible=icon]:hidden"
+                    >
+                      <Coin size={12} variant="Bold" />
+                      {credits.remaining}
+                    </Badge>
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  side="top"
+                  align="start"
+                  sideOffset={8}
+                  className="w-[--radix-dropdown-menu-trigger-width] min-w-60"
+                >
+                  <DropdownMenuLabel className="flex flex-col gap-0.5">
+                    <span className="truncate">{user.name || "Your account"}</span>
+                    <span className="truncate text-xs font-normal text-muted-foreground">
+                      {user.email}
+                    </span>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="flex items-center justify-between gap-4" disabled>
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Coin size={16} variant="Linear" />
+                      Credits left
+                    </span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {credits.remaining} / {credits.allowance} this month
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings">
+                      <Setting2 size={16} variant="Linear" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    className="hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10"
+                    onClick={signOut}
+                  >
+                    <Logout size={16} variant="Linear" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+      <SidebarInset>
+        <header className="flex h-14 items-center gap-2 px-4 md:hidden">
+          <SidebarTrigger>
+            <HambergerMenu size={20} />
+          </SidebarTrigger>
+        </header>
+        <div className="flex-1 px-5 pb-12 pt-6 md:px-8 md:pt-10 lg:px-12">{children}</div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

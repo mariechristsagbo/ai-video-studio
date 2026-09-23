@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import {
   VideoPlay,
   Magicpen,
@@ -15,11 +15,78 @@ import { api } from "./client-api";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Input, Textarea } from "./ui/input";
+import { Input } from "./ui/input";
+import { Separator } from "./ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "./ui/select";
+import { SelectLabel } from "./select-label";
+import { Skeleton } from "./ui/skeleton";
 import { progress } from "@/domain/video";
 import type { detail, Shot } from "@/generations/repository";
 type Detail = Awaited<ReturnType<typeof detail>>;
 type Action = (path: string, body: unknown) => Promise<void>;
+const NONE = "none";
+const labelClass = "mb-2 block text-sm font-medium text-foreground";
+const errorClass =
+  "my-3 rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive";
+const noticeClass =
+  "my-3.5 rounded-md border border-border bg-secondary px-4 py-3 text-xs text-muted-foreground";
+const textareaClass =
+  "w-full resize-y rounded-md border border-input bg-background px-3 py-2 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
+type Option = { value: string; label: string };
+const MODE_OPTIONS: Option[] = [
+  { value: "text", label: "Text" },
+  { value: "keyframe", label: "Keyframe" },
+  { value: "reference", label: "Reference" },
+];
+const TRANSITION_OPTIONS: Option[] = [
+  { value: "cut", label: "Cut" },
+  { value: "fade", label: "Fade" },
+  { value: "crossfade", label: "Crossfade" },
+];
+// Radix renders an item's label only once its content has been mounted, so these stay controlled and
+// the key resets the selection whenever another shot is opened.
+function InspectorSelect({
+  name,
+  initial,
+  options,
+}: {
+  name: string;
+  initial: string;
+  options: Option[];
+}) {
+  const [value, setValue] = useState(initial);
+  return (
+    <Select name={name} value={value} onValueChange={setValue}>
+      <SelectTrigger className="w-full">
+        <SelectLabel>{options.find((o) => o.value === value)?.label ?? ""}</SelectLabel>
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+function StatusPill({
+  status,
+  className = "",
+}: {
+  status: string;
+  className?: string;
+}) {
+  const failed = ["FAILED", "UNCERTAIN"].includes(status);
+  return (
+    <Badge
+      variant={failed ? "outline" : status === "COMPLETED" ? "default" : "secondary"}
+      className={`capitalize ${failed ? "border-destructive/20 bg-destructive/10 text-destructive" : ""} ${className}`}
+    >
+      {status.replaceAll("_", " ").toLowerCase()}
+    </Badge>
+  );
+}
 export function Editor({ id }: { id: string }) {
   const [data, setData] = useState<Detail>(),
     [selected, setSelected] = useState<string>(),
@@ -59,8 +126,68 @@ export function Editor({ id }: { id: string }) {
   if (!data)
     return (
       <>
-        {error && <div className="error">{error}</div>}
-        <div className="loading" />
+        {error && <div className={errorClass}>{error}</div>}
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-8 w-64" />
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-5 w-24 rounded-full" />
+              <Skeleton className="h-4 w-40" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-9 w-28" />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-44" />
+        </div>
+        <Skeleton className="my-2.5 h-1.5 w-full rounded-full" />
+        <div className="mb-5 mt-6 flex gap-6 border-b border-border pb-3">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-28" />
+        </div>
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px]">
+          <div className="flex flex-col gap-4">
+            <Skeleton className="min-h-[310px] w-full rounded-lg" />
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="h-8 w-32" />
+            </div>
+            <div className="flex gap-3 overflow-hidden pb-4 pt-1.5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-[136px] shrink-0 overflow-hidden rounded-lg border border-border"
+                >
+                  <Skeleton className="h-[78px] w-full rounded-none" />
+                  <div className="flex flex-col gap-2 p-2.5">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-4 w-14 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-6 w-24" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-[100px] w-full" />
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-[150px] w-full" />
+            <div className="grid grid-cols-2 gap-3">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+            <Skeleton className="h-9 w-full" />
+          </div>
+        </div>
       </>
     );
   const { generation: g, shots, scenes, renders } = data,
@@ -80,18 +207,17 @@ export function Editor({ id }: { id: string }) {
       act("edit", { revision: g.revision, ...(body as object) });
   return (
     <>
-      <header className="page-top editor-top">
+      <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="eyebrow">Generation workspace</div>
-          <h1>{g.title}</h1>
-          <div className="project-subline">
-            <Badge status={g.status} />
-            <small>
+          <h1 className="text-2xl font-semibold tracking-tight">{g.title}</h1>
+          <div className="mt-3 flex items-center gap-3">
+            <StatusPill status={g.status} />
+            <small className="text-xs text-muted-foreground">
               {g.aspectRatio} · {g.platform} · {g.targetDuration}s target
             </small>
           </div>
         </div>
-        <div className="editor-actions">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             disabled={busy || locked || !shots.length}
@@ -128,35 +254,39 @@ export function Editor({ id }: { id: string }) {
         </div>
       </header>
       {error && (
-        <div className="error" role="alert">
+        <div className={errorClass} role="alert">
           {error}
         </div>
       )}
-      {g.error && <div className="error">{g.error}</div>}
+      {g.error && <div className={errorClass}>{g.error}</div>}
       {g.status === "PLANNING" && (
-        <div className="notice">
+        <div className={noticeClass}>
           Writing your brief, narration, and storyboard. This may take a few minutes.
           You can leave and return later.
         </div>
       )}
-      <div className="row spread">
-        <small>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <small className="text-xs text-muted-foreground">
           {completed} / {shots.length} shots completed
         </small>
-        <small>
+        <small className="text-xs text-muted-foreground">
           {generating} generating · {queued} queued · {failed} failed
         </small>
       </div>
-      <div className="progress-track">
+      <div className="my-2.5 h-1.5 overflow-hidden rounded-full bg-secondary">
         <div
-          className="progress-fill"
+          className="h-full bg-primary transition-[width] duration-300"
           style={{ width: `${progress(g.status, completed, shots.length)}%` }}
         />
       </div>
-      <div className="tabs">
+      <div className="mb-5 mt-6 flex gap-6 border-b border-border">
         {["storyboard", "script & scenes", "audio & captions"].map((t) => (
           <button
-            className={`tab ${tab === t ? "active" : ""}`}
+            className={`-mb-px border-b-2 pb-3 text-xs transition-colors ${
+              tab === t
+                ? "border-primary font-medium text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
             key={t}
             onClick={() => setTab(t)}
           >
@@ -165,20 +295,21 @@ export function Editor({ id }: { id: string }) {
         ))}
       </div>
       {tab === "storyboard" ? (
-        <div className="editor-grid">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px]">
           <div>
-            <div className="preview">
+            <div className="flex min-h-[310px] items-center justify-center overflow-hidden rounded-lg bg-foreground text-muted-foreground">
               {preview ? (
                 <video
                   key={preview}
                   src={`/api/media/${preview}`}
                   controls
                   preload="metadata"
+                  className="max-h-[450px] w-full"
                 />
               ) : (
-                <div className="preview-empty">
-                  <VideoPlay size={46} style={{ margin: "auto" }} />
-                  <p>
+                <div className="p-10 text-center">
+                  <VideoPlay size={46} className="mx-auto block" />
+                  <p className="mx-auto mt-4 max-w-[330px] text-sm">
                     Your story, one shot at a time.
                     <br />
                     Review the storyboard below, then generate your clips.
@@ -186,15 +317,15 @@ export function Editor({ id }: { id: string }) {
                 </div>
               )}
             </div>
-            <div className="preview-info">
-              <small>
+            <div className="mt-3.5 flex items-center justify-between gap-3">
+              <small className="text-xs text-muted-foreground">
                 {final
                   ? "Final render"
                   : shot
                     ? `Shot ${shot.position + 1} preview`
                     : "No preview yet"}
               </small>
-              <div className="row">
+              <div className="flex items-center gap-2">
                 {latest && (
                   <>
                     <Button size="sm" variant="ghost" onClick={() => setFinal(!final)}>
@@ -212,19 +343,22 @@ export function Editor({ id }: { id: string }) {
                 )}
               </div>
             </div>
-            <div className="timeline">
+            <div className="mt-4 flex gap-3 overflow-auto pb-4 pt-1.5">
               {shots.map((s) => (
                 <button
                   key={s.id}
-                  className={`shot-card ${selected === s.id ? "selected" : ""}`}
+                  className={`w-[136px] shrink-0 overflow-hidden rounded-lg border border-border bg-card text-left ${
+                    selected === s.id ? "ring-2 ring-primary" : ""
+                  }`}
                   onClick={() => {
                     setSelected(s.id);
                     setFinal(false);
                   }}
                 >
-                  <div className="shot-poster">
+                  <div className="flex h-[78px] items-center justify-center overflow-hidden bg-accent text-muted-foreground">
                     {s.thumbnailId ? (
                       <img
+                        className="h-full w-full object-cover"
                         src={`/api/media/${s.thumbnailId}`}
                         alt={`Shot ${s.position + 1}`}
                       />
@@ -232,26 +366,30 @@ export function Editor({ id }: { id: string }) {
                       <VideoPlay size={22} />
                     )}
                   </div>
-                  <div className="shot-info">
-                    <div className="row spread">
-                      <strong style={{ fontSize: 12 }}>Shot {s.position + 1}</strong>
-                      <small>{s.duration}s</small>
+                  <div className="p-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <strong className="text-xs font-semibold">
+                        Shot {s.position + 1}
+                      </strong>
+                      <small className="text-xs text-muted-foreground">
+                        {s.duration}s
+                      </small>
                     </div>
-                    <Badge status={s.status} />
+                    <StatusPill status={s.status} className="mt-2 text-[9px]" />
                   </div>
                 </button>
               ))}
             </div>
             {!shots.length && g.status !== "PLANNING" && (
-              <div className="empty">
-                <p>No storyboard yet.</p>
+              <div className="rounded-xl border border-dashed border-border px-6 py-[70px] text-center text-muted-foreground">
+                <p className="mx-auto mb-5 max-w-[380px] text-sm">No storyboard yet.</p>
                 <Button onClick={() => void act("replan", {})} disabled={busy}>
                   Retry planning
                 </Button>
               </div>
             )}
             {failed > 0 && (
-              <div className="notice">
+              <div className={`${noticeClass} flex flex-wrap items-center gap-2`}>
                 Completed clips are safe.{" "}
                 <Button
                   size="sm"
@@ -263,7 +401,7 @@ export function Editor({ id }: { id: string }) {
                 </Button>
               </div>
             )}
-            <div className="notice">
+            <div className={noticeClass}>
               Review factual claims and prompts before generating. Agnes bills each clip
               independently. A failed replacement never removes your previous clip.
             </div>
@@ -280,10 +418,10 @@ export function Editor({ id }: { id: string }) {
           )}
         </div>
       ) : tab === "script & scenes" ? (
-        <div className="max-readable">
-          <Card>
-            <h2>Narration script</h2>
-            <p className="help">
+        <div className="max-w-[720px]">
+          <Card className="px-6">
+            <h2 className="text-lg font-semibold">Narration script</h2>
+            <p className="text-xs text-muted-foreground">
               Edit before generating clips. Rebuild the storyboard to apply narration
               timing changes.
             </p>
@@ -295,13 +433,13 @@ export function Editor({ id }: { id: string }) {
                 void edit({ script: String(form.get("script")) });
               }}
             >
-              <Textarea
+              <textarea
                 name="script"
                 defaultValue={g.script}
-                style={{ minHeight: 250 }}
                 maxLength={30000}
+                className={`${textareaClass} min-h-[250px] text-sm`}
               />
-              <div className="row space-top">
+              <div className="mt-5 flex items-center gap-3">
                 <Button disabled={busy || locked}>Save script</Button>
                 <Button
                   type="button"
@@ -322,7 +460,9 @@ export function Editor({ id }: { id: string }) {
             </form>
           </Card>
           <details>
-            <summary>Creative brief & visual bible</summary>
+            <summary className="cursor-pointer py-3.5 text-xs font-medium text-muted-foreground">
+              Creative brief & visual bible
+            </summary>
             <form
               key={`brief-${g.revision}`}
               onSubmit={(e) => {
@@ -338,29 +478,29 @@ export function Editor({ id }: { id: string }) {
                 }
               }}
             >
-              <label className="field">
-                <span>Creative brief (JSON)</span>
-                <Textarea
+              <label className="mb-4 block">
+                <span className={labelClass}>Creative brief (JSON)</span>
+                <textarea
                   name="brief"
                   defaultValue={JSON.stringify(g.creativeBrief, null, 2)}
-                  style={{ minHeight: 200 }}
+                  className={`${textareaClass} min-h-[200px] text-sm`}
                 />
               </label>
-              <label className="field">
-                <span>Visual bible (JSON)</span>
-                <Textarea
+              <label className="mb-4 block">
+                <span className={labelClass}>Visual bible (JSON)</span>
+                <textarea
                   name="bible"
                   defaultValue={JSON.stringify(g.visualBible, null, 2)}
-                  style={{ minHeight: 160 }}
+                  className={`${textareaClass} min-h-[160px] text-sm`}
                 />
               </label>
               <Button disabled={busy || locked}>Save creative direction</Button>
             </form>
           </details>
-          <h2 className="space-top">Scenes</h2>
+          <h2 className="mb-4 mt-5 text-lg font-semibold">Scenes</h2>
           {scenes.map((scene) => (
             <form
-              className="scene-card"
+              className="mb-3.5 rounded-lg border border-border bg-card p-4"
               key={`${scene.id}-${scene.updatedAt}`}
               onSubmit={(e) => {
                 e.preventDefault();
@@ -374,15 +514,19 @@ export function Editor({ id }: { id: string }) {
                 });
               }}
             >
-              <label className="field">
-                <span>Scene {scene.position + 1}</span>
+              <label className="mb-4 block">
+                <span className={labelClass}>Scene {scene.position + 1}</span>
                 <Input name="title" defaultValue={scene.title} required />
               </label>
-              <Textarea name="narration" defaultValue={scene.narration} />
+              <textarea
+                name="narration"
+                defaultValue={scene.narration}
+                className={`${textareaClass} min-h-[110px] text-sm`}
+              />
               <Button
                 size="sm"
                 variant="outline"
-                className="space-top"
+                className="mt-5"
                 disabled={busy || locked}
               >
                 Save scene
@@ -391,17 +535,22 @@ export function Editor({ id }: { id: string }) {
           ))}
         </div>
       ) : (
-        <div className="max-readable">
-          <Card>
-            <h2>Sound & subtitles</h2>
-            <p>One continuous narration track keeps your story coherent.</p>
-            <div className="upload-grid">
+        <div className="max-w-[720px]">
+          <Card className="px-6">
+            <h2 className="text-lg font-semibold">Sound & subtitles</h2>
+            <p className="text-sm text-muted-foreground">
+              One continuous narration track keeps your story coherent.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
               {(["narration", "music"] as const).map((kind) => (
-                <div className="upload-box" key={kind}>
-                  <strong>
+                <div
+                  className="rounded-lg border border-dashed border-border p-4"
+                  key={kind}
+                >
+                  <strong className="text-sm font-semibold">
                     {kind === "narration" ? "Narration recording" : "Background music"}
                   </strong>
-                  <p className="help">
+                  <p className="mt-1.5 text-xs text-muted-foreground">
                     {kind === "narration"
                       ? "The recording’s real duration drives the final timeline."
                       : "Mixed quietly below narration."}{" "}
@@ -409,16 +558,17 @@ export function Editor({ id }: { id: string }) {
                   </p>
                   {(kind === "narration" ? g.narrationId : g.musicId) && (
                     <audio
+                      className="h-8 w-full"
                       controls
                       src={`/api/media/${kind === "narration" ? g.narrationId : g.musicId}`}
-                      style={{ width: "100%", height: 32 }}
                     />
                   )}
-                  <input
+                  <Input
                     aria-label={`Upload ${kind}`}
                     type="file"
                     accept="audio/*,video/mp4"
                     disabled={busy || locked}
+                    className="mt-3 h-auto w-full py-1.5 text-xs"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
@@ -432,51 +582,56 @@ export function Editor({ id }: { id: string }) {
                 </div>
               ))}
             </div>
-            <div className="notice">
+            <div className={noticeClass}>
               Agnes has no documented standalone narration API. Upload your voiceover,
               or use the estimated script timing. After uploading narration, rebuild the
               draft storyboard to rebalance shots before generating.
             </div>
-            <label className="toggle">
+            <label className="my-4 flex items-center gap-2.5 text-sm">
               <input
                 type="checkbox"
+                className="size-4 accent-primary"
                 checked={g.burnCaptions}
                 disabled={busy || locked}
                 onChange={(e) => void edit({ burnCaptions: e.target.checked })}
               />
               Burn captions into final video
             </label>
-            <label className="toggle">
+            <label className="my-4 flex items-center gap-2.5 text-sm">
               <input
                 type="checkbox"
+                className="size-4 accent-primary"
                 checked={g.clipAudio}
                 disabled={busy || locked}
                 onChange={(e) => void edit({ clipAudio: e.target.checked })}
               />
               Keep original clip audio at low volume
             </label>
-            <small>
+            <small className="text-xs text-muted-foreground">
               Captions use estimated phrase timing, high contrast, and a mobile-safe
               lower margin.
             </small>
           </Card>
           {renders.length > 0 && (
-            <Card className="space-top">
-              <h2>Render history</h2>
-              {renders.map((r) => (
-                <div className="setting-row" key={r.id}>
-                  <span>
-                    Version {r.version} <Badge status={r.status} />
-                  </span>
-                  {r.assetId && (
-                    <a
-                      className="text-link"
-                      href={`/api/media/${r.assetId}?download=1`}
-                    >
-                      Download MP4
-                    </a>
-                  )}
-                </div>
+            <Card className="mt-5 gap-2 px-6">
+              <h2 className="text-lg font-semibold">Render history</h2>
+              {renders.map((r, i) => (
+                <Fragment key={r.id}>
+                  {i > 0 && <Separator />}
+                  <div className="flex items-center justify-between gap-3 py-4">
+                    <span className="flex items-center gap-2 text-sm">
+                      Version {r.version} <StatusPill status={r.status} />
+                    </span>
+                    {r.assetId && (
+                      <a
+                        className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                        href={`/api/media/${r.assetId}?download=1`}
+                      >
+                        Download MP4
+                      </a>
+                    )}
+                  </div>
+                </Fragment>
               ))}
             </Card>
           )}
@@ -503,15 +658,21 @@ function ShotEditor({
     ),
     disabled = busy || active;
   return (
-    <Card className="inspector">
-      <div className="row spread">
-        <h2>Shot {shot.position + 1}</h2>
-        <Badge status={shot.status} />
+    <Card className="gap-4 p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">Shot {shot.position + 1}</h2>
+        <StatusPill status={shot.status} />
       </div>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           const f = new FormData(e.currentTarget);
+          // The shadcn Select submits through a hidden native select; "none" is its
+          // stand-in for the empty option the API expects as null.
+          const read = (key: string) => {
+            const v = String(f.get(key) ?? "");
+            return v === NONE ? "" : v;
+          };
           void save({
             shot: {
               id: shot.id,
@@ -519,40 +680,41 @@ function ShotEditor({
                 visualDescription: String(f.get("visualDescription")),
                 videoPrompt: String(f.get("videoPrompt")),
                 duration: Number(f.get("duration")),
-                mode: String(f.get("mode")),
-                transition: String(f.get("transition")),
+                mode: read("mode"),
+                transition: read("transition"),
                 camera: String(f.get("camera")),
                 environment: String(f.get("environment")),
-                referenceId: f.get("referenceId") || null,
-                characterId: f.get("characterId") || null,
-                continuityFrom: f.get("continuityFrom") || null,
+                referenceId: read("referenceId") || null,
+                characterId: read("characterId") || null,
+                continuityFrom: read("continuityFrom") || null,
               },
             },
           });
         }}
       >
-        <label className="field">
-          <span>Visual description</span>
-          <Textarea
+        <label className="mb-3.5 block">
+          <span className={labelClass}>Visual description</span>
+          <textarea
             name="visualDescription"
             defaultValue={shot.visualDescription}
             required
             maxLength={4000}
+            className={`${textareaClass} min-h-[100px] text-xs`}
           />
         </label>
-        <label className="field">
-          <span>Video prompt</span>
-          <Textarea
+        <label className="mb-3.5 block">
+          <span className={labelClass}>Video prompt</span>
+          <textarea
             name="videoPrompt"
             defaultValue={shot.videoPrompt}
             required
             maxLength={8000}
-            style={{ minHeight: 150 }}
+            className={`${textareaClass} min-h-[150px] text-xs`}
           />
         </label>
-        <div className="form-grid" style={{ gap: 12 }}>
-          <label className="field">
-            <span>Seconds</span>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="mb-3.5 block">
+            <span className={labelClass}>Seconds</span>
             <Input
               name="duration"
               type="number"
@@ -562,95 +724,90 @@ function ShotEditor({
               required
             />
           </label>
-          <label className="field">
-            <span>Mode</span>
-            <select name="mode" className="input" defaultValue={shot.mode}>
-              <option value="text">Text</option>
-              <option value="keyframe">Keyframe</option>
-              <option value="reference">Reference</option>
-            </select>
+          <label className="mb-3.5 block">
+            <span className={labelClass}>Mode</span>
+            <InspectorSelect
+              key={`${shot.id}-mode`}
+              name="mode"
+              initial={shot.mode}
+              options={MODE_OPTIONS}
+            />
           </label>
         </div>
         <details>
-          <summary>Continuity & direction</summary>
-          <label className="field">
-            <span>Camera</span>
+          <summary className="cursor-pointer py-3.5 text-xs font-medium text-muted-foreground">
+            Continuity & direction
+          </summary>
+          <label className="mb-3.5 block">
+            <span className={labelClass}>Camera</span>
             <Input name="camera" defaultValue={shot.camera} />
           </label>
-          <label className="field">
-            <span>Environment</span>
+          <label className="mb-3.5 block">
+            <span className={labelClass}>Environment</span>
             <Input name="environment" defaultValue={shot.environment} />
           </label>
-          <label className="field">
-            <span>Character</span>
-            <select
+          <label className="mb-3.5 block">
+            <span className={labelClass}>Character</span>
+            <InspectorSelect
+              key={`${shot.id}-character`}
               name="characterId"
-              className="input"
-              defaultValue={shot.characterId || ""}
-            >
-              <option value="">None</option>
-              {data.characters.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              initial={shot.characterId || NONE}
+              options={[
+                { value: NONE, label: "None" },
+                ...data.characters.map((c) => ({ value: c.id, label: c.name })),
+              ]}
+            />
           </label>
-          <label className="field">
-            <span>Reference image</span>
-            <select
+          <label className="mb-3.5 block">
+            <span className={labelClass}>Reference image</span>
+            <InspectorSelect
+              key={`${shot.id}-reference`}
               name="referenceId"
-              className="input"
-              defaultValue={shot.referenceId || ""}
-            >
-              <option value="">None</option>
-              {data.assets
-                .filter((a) => a.kind === "reference")
-                .map((a, i) => (
-                  <option key={a.id} value={a.id}>
-                    Reference {i + 1}
-                  </option>
-                ))}
-            </select>
+              initial={shot.referenceId || NONE}
+              options={[
+                { value: NONE, label: "None" },
+                ...data.assets
+                  .filter((a) => a.kind === "reference")
+                  .map((a, i) => ({ value: a.id, label: `Reference ${i + 1}` })),
+              ]}
+            />
           </label>
-          <label className="field">
-            <span>Continue from final frame</span>
-            <select
+          <label className="mb-3.5 block">
+            <span className={labelClass}>Continue from final frame</span>
+            <InspectorSelect
+              key={`${shot.id}-continuity`}
               name="continuityFrom"
-              className="input"
-              defaultValue={shot.continuityFrom || ""}
-            >
-              <option value="">No frame continuity</option>
-              {data.shots
-                .filter((s) => s.position < shot.position)
-                .map((s) => (
-                  <option key={s.id} value={s.id}>
-                    Shot {s.position + 1}
-                  </option>
-                ))}
-            </select>
+              initial={shot.continuityFrom || NONE}
+              options={[
+                { value: NONE, label: "No frame continuity" },
+                ...data.shots
+                  .filter((s) => s.position < shot.position)
+                  .map((s) => ({ value: s.id, label: `Shot ${s.position + 1}` })),
+              ]}
+            />
           </label>
-          <label className="field">
-            <span>Transition to next shot</span>
-            <select name="transition" className="input" defaultValue={shot.transition}>
-              <option value="cut">Cut</option>
-              <option value="fade">Fade</option>
-              <option value="crossfade">Crossfade</option>
-            </select>
+          <label className="mb-3.5 block">
+            <span className={labelClass}>Transition to next shot</span>
+            <InspectorSelect
+              key={`${shot.id}-transition`}
+              name="transition"
+              initial={shot.transition}
+              options={TRANSITION_OPTIONS}
+            />
           </label>
         </details>
-        <Button className="full-width" disabled={disabled}>
+        <Button className="w-full" disabled={disabled}>
           <TickCircle size={16} />
           Save changes
         </Button>
       </form>
-      <label className="field space-top">
-        <span>Upload a reference image</span>
-        <input
+      <label className="mt-5 block">
+        <span className={labelClass}>Upload a reference image</span>
+        <Input
           type="file"
           accept="image/png,image/jpeg,image/webp"
           disabled={disabled}
-          style={{ fontSize: 11, width: "100%" }}
+          className="h-auto w-full py-1.5 text-xs"
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) {
@@ -662,10 +819,10 @@ function ShotEditor({
           }}
         />
       </label>
-      {shot.lastError && <div className="error">{shot.lastError}</div>}
+      {shot.lastError && <div className={errorClass}>{shot.lastError}</div>}
       <Button
         variant="outline"
-        className="full-width"
+        className="w-full"
         disabled={disabled}
         onClick={() => {
           const uncertain = shot.status === "UNCERTAIN";
@@ -685,7 +842,7 @@ function ShotEditor({
         <Refresh size={15} />
         {shot.clipId ? "Regenerate this shot" : "Generate this shot"}
       </Button>
-      <div className="row space-top spread">
+      <div className="mt-5 flex items-center justify-between gap-3">
         {[
           ["up", ArrowUp2, "Move up"],
           ["down", ArrowDown2, "Move down"],
