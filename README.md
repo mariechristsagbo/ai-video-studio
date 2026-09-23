@@ -48,6 +48,11 @@ Next.js (App Router) · TypeScript · Tailwind CSS · shadcn-style UI primitives
 
 Copy `.env.example` to `.env` and fill it in. Never commit `.env`.
 
+Media storage runs on the local disk by default. To keep media in Cloudinary instead, set
+`STORAGE_DRIVER=cloudinary` with `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and
+`CLOUDINARY_API_SECRET` (details in `docs/storage.md`); the FFmpeg working copy, the authenticated
+`/api/media/<id>` route and the render pipeline all keep working unchanged.
+
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | Neon pooled PostgreSQL connection string |
@@ -63,6 +68,8 @@ Copy `.env.example` to `.env` and fill it in. Never commit `.env`.
 | `AGNES_VIDEO_MODEL` | Defaults to `agnes-video-2.5` |
 | `VIDEO_GENERATION_CONCURRENCY` | Concurrent shot generations per worker (default 3) |
 | `RENDER_CONCURRENCY` | Concurrent FFmpeg renders per worker (default 1) |
+| `STORAGE_DRIVER` | `local` (default) or `cloudinary` |
+| `CLOUDINARY_*` | Cloud name, API key, API secret, folder, delivery type — see `docs/storage.md` |
 | `DATA_DIR` | Persistent media directory (default `data`, `/app/data` in Docker) |
 
 ## Setup
@@ -139,7 +146,7 @@ src/domain/         framework-free rules: shot planning, storyboard validation, 
 src/db/             Drizzle client, schema and migration runner
 src/generations/    repository (ownership-scoped reads), transactional commands, HTTP service
 src/providers/      Agnes text/video adapter behind provider interfaces
-src/storage/        local storage provider, signed URLs, SSRF-safe download, upload verification
+src/storage/        storage drivers (local, Cloudinary), signed URLs, SSRF-safe download, uploads
 src/render/         FFmpeg process wrapper, normalization, concat, audio mix, captions, thumbnails
 src/queues/         BullMQ queues and Redis client
 src/workers/        planning, shot, rendering, cleanup handlers and outbox reconciliation
