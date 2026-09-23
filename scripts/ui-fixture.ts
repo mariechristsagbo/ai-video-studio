@@ -175,10 +175,24 @@ const composition = {
   burnCaptions: true,
   clipAudio: false,
 };
-// A real render so the editor shows an actual playable final video.
+// A real render so the editor shows an actual playable final video. The stored composition
+// keeps keys; FFmpeg needs the materialised local copies.
 const renderKey = `users/${userId}/generations/${generation.id}/renders/fixture-final.mp4`;
 const renderPath = storage.localPath(renderKey);
-const renderInfo = await renderVideo(composition, renderPath);
+const renderInfo = await renderVideo(
+  {
+    ...composition,
+    video: await Promise.all(
+      composition.video.map(async (clip) => ({
+        ...clip,
+        path: await storage.materialize(clip.path),
+      })),
+    ),
+  },
+  renderPath,
+);
+await storage.upload(renderKey);
+await storage.upload(renderKey + ".jpg");
 const [renderAsset] = await db
   .insert(assets)
   .values({
@@ -221,13 +235,24 @@ await db
 await mkdir("data/verification", { recursive: true });
 await writeFile(
   "data/verification/ui-session.json",
-  JSON.stringify({ cookie, userId, generationId: generation.id, email }, null, 2),
+  JSON.stringify(
+    {
+      cookie,
+      userId,
+      generationId: generation.id,
+      email,
+      renderAssetId: renderAsset.id,
+    },
+    null,
+    2,
+  ),
   { mode: 0o600 },
 );
 console.log(
   JSON.stringify({
     fixtureUi: "seeded",
     generationId: generation.id,
+    renderAssetId: renderAsset.id,
     userId,
     shots: clipPaths.length,
     renderDuration: renderInfo.duration,
