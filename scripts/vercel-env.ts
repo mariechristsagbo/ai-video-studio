@@ -31,6 +31,7 @@ const DEFAULTS: Record<string, string> = {
 const MANAGED = [...REQUIRED, ...Object.keys(DEFAULTS)];
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
+const skipMissing = args.includes("--skip-missing");
 const urlIndex = args.indexOf("--url");
 const deploymentUrl = urlIndex >= 0 ? args[urlIndex + 1] : undefined;
 const values: Record<string, string> = { ...DEFAULTS };
@@ -38,19 +39,32 @@ for (const name of MANAGED) {
   const value = process.env[name];
   if (value) values[name] = value;
 }
-if (!values.REDIS_URL?.startsWith("rediss://"))
+if (/^rediss?:\/\/(localhost|127\.0\.0\.1)/.test(values.REDIS_URL ?? "")) {
+  // A local Redis is unreachable from a function; leave the variable unset instead.
+  delete values.REDIS_URL;
   console.warn(
-    "warning: REDIS_URL does not look like a managed TLS endpoint; Vercel needs a reachable Redis (Upstash or similar).",
+    "skipping REDIS_URL: the configured value points at localhost. Add a managed endpoint (rediss://UPSTASH...) so rate limiting works on Vercel.",
+  );
+} else if (values.REDIS_URL && !values.REDIS_URL.startsWith("rediss://"))
+  console.warn(
+    "warning: REDIS_URL is not a managed TLS endpoint; Vercel needs to reach Redis over the public internet.",
   );
 if (deploymentUrl) {
   values.BETTER_AUTH_URL = deploymentUrl;
   values.NEXT_PUBLIC_APP_URL = deploymentUrl;
 }
 const missing = REQUIRED.filter((name) => !values[name]);
-if (missing.length) {
+if (missing.length && !skipMissing) {
   console.error("missing values in .env:", missing.join(", "));
+  console.error("pass --skip-missing to deploy with the others anyway.");
   process.exit(1);
 }
+if (missing.length)
+  console.warn(
+    "deploying without:",
+    missing.join(", "),
+    "- these features will not work yet.",
+  );
 console.log(
   dryRun ? "dry run: would set" : "setting",
   Object.keys(values).sort().join(", "),
