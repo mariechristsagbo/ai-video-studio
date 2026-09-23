@@ -6,7 +6,7 @@ FROM base AS build
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 RUN pnpm install --frozen-lockfile
 COPY . .
-RUN pnpm build
+RUN DOCKER_BUILD=1 pnpm build
 FROM base AS runtime
 ENV NODE_ENV=production DATA_DIR=/app/data HOSTNAME=0.0.0.0 PORT=3000
 COPY --from=build --chown=node:node /app/.next/standalone ./

@@ -198,6 +198,19 @@ it("requires credentials only when Cloudinary is selected", () => {
   expect(() => createStorage({ STORAGE_DRIVER: "s3" })).toThrow(
     "Unknown STORAGE_DRIVER",
   );
+  // Serverless filesystems are ephemeral, so local storage is refused there.
+  expect(() => createStorage({ VERCEL: "1" })).toThrow(
+    "Serverless deployments have an ephemeral filesystem",
+  );
+  expect(
+    createStorage({
+      VERCEL: "1",
+      STORAGE_DRIVER: "cloudinary",
+      CLOUDINARY_CLOUD_NAME: "demo",
+      CLOUDINARY_API_KEY: "key",
+      CLOUDINARY_API_SECRET: "secret",
+    }).driver,
+  ).toBe("cloudinary");
   expect(() =>
     cloudinaryConfigFromEnv({
       CLOUDINARY_CLOUD_NAME: "demo",

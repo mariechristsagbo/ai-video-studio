@@ -5,8 +5,14 @@ import { lookup } from "node:dns/promises";
 import { request } from "node:https";
 import ipaddr from "ipaddr.js";
 import type { StorageProvider } from "./types";
+export function storageRoot() {
+  const configured = process.env.DATA_DIR;
+  if (configured) return resolve(/*turbopackIgnore: true*/ configured);
+  // Serverless builds have a read-only filesystem apart from /tmp.
+  return process.env.VERCEL ? "/tmp/studio" : resolve("data");
+}
 export function safePath(key: string) {
-  const root = resolve(/*turbopackIgnore: true*/ process.env.DATA_DIR || "data");
+  const root = storageRoot();
   const path = resolve(root, key);
   if (key.startsWith("/") || !path.startsWith(root + sep))
     throw new Error("Invalid storage key");
@@ -44,7 +50,7 @@ export class LocalStorageProvider implements StorageProvider {
     return {
       driver: this.driver,
       ready: true,
-      detail: `local disk at ${resolve(/*turbopackIgnore: true*/ process.env.DATA_DIR || "data")}`,
+      detail: `local disk at ${storageRoot()}`,
     };
   }
 }

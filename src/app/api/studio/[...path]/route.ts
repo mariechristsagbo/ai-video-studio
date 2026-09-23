@@ -3,6 +3,8 @@ import { readRoute, writeRoute } from "@/generations/api-service";
 import { errorResponse, checkOrigin } from "@/lib/http";
 import { getRedis } from "@/queues/redis";
 export const runtime = "nodejs";
+// Uploads and bulk actions are the slowest serverless paths; 60s is the Hobby ceiling.
+export const maxDuration = 60;
 type Context = { params: Promise<{ path: string[] }> };
 export async function GET(request: Request, context: Context) {
   try {

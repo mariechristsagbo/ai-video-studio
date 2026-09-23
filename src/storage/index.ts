@@ -1,4 +1,5 @@
 import { LocalStorageProvider } from "./local";
+import { assertServerlessStorage } from "./guards";
 import {
   CloudinaryStorageProvider,
   cloudinaryConfigFromEnv,
@@ -9,7 +10,10 @@ export function createStorage(
   env: Record<string, string | undefined>,
 ): StorageProvider {
   const driver = env.STORAGE_DRIVER ?? "local";
-  if (driver === "local") return new LocalStorageProvider();
+  if (driver === "local") {
+    assertServerlessStorage(env);
+    return new LocalStorageProvider();
+  }
   if (driver === "cloudinary")
     return new CloudinaryStorageProvider(cloudinaryConfigFromEnv(env));
   throw new Error(`Unknown STORAGE_DRIVER "${driver}" (expected local or cloudinary)`);

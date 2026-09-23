@@ -33,8 +33,18 @@ assert.equal(bytes.length, payload.length, "downloaded object has the wrong size
 assert.ok(bytes.equals(payload), "downloaded object differs from the uploaded bytes");
 console.log("roundtrip", "ok", `${bytes.length} bytes`);
 const url = storage.directUrl?.(key, 300);
-assert.ok(url?.startsWith("https://"), "a signed delivery URL was expected");
-console.log("signed_delivery_url", "issued");
+if (!url || !url.startsWith("https://"))
+  throw new Error("a signed delivery URL was expected");
+const ranged = await fetch(url, { headers: { Range: "bytes=0-99" } });
+console.log(
+  "signed_delivery_url",
+  url.startsWith("https://") ? "https" : "other",
+  `| GET ${ranged.status}`,
+  ranged.headers.get("content-range") || "no content-range",
+  "| content-type",
+  ranged.headers.get("content-type") || "unknown",
+);
+assert.equal(ranged.status, 200, "the signed URL should deliver the object");
 await storage.remove(key);
 await assert.rejects(() => stat(local), "the local copy should be gone");
 console.log("cleanup", "ok");

@@ -8,6 +8,8 @@ import { assets, generations } from "@/db/schema";
 import { currentUser } from "@/auth/session";
 import { storage, verifyAsset } from "@/storage";
 export const runtime = "nodejs";
+// Proxy streaming of a render can take a while; set a ceiling explicitly.
+export const maxDuration = 60;
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
