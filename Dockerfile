@@ -15,7 +15,7 @@ COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/src ./src
 COPY --from=build --chown=node:node /app/drizzle ./drizzle
 COPY --from=build --chown=node:node /app/scripts ./scripts
-COPY --from=build --chown=node:node /app/package.json /app/tsconfig.json ./
+COPY --from=build --chown=node:node /app/package.json /app/tsconfig.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/.npmrc ./
 RUN mkdir -p /app/data && chown -R node:node /app
 USER node
 EXPOSE 3000

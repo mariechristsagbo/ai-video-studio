@@ -1,10 +1,5 @@
 import { it, expect } from "vitest";
-import {
-  safePath,
-  signAsset,
-  verifyAsset,
-  publicAddress,
-} from "../src/storage/local";
+import { safePath, signAsset, verifyAsset, publicAddress } from "../src/storage/local";
 it("confines storage paths", () => {
   expect(() => safePath("../private")).toThrow();
   expect(() => safePath("/etc/passwd")).toThrow();

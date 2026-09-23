@@ -22,7 +22,7 @@ Everything below was executed on this machine against the real repository, a rea
 | `pnpm install --frozen-lockfile` | pass — 457+ packages, lockfile unchanged |
 | `pnpm lint` | pass — 0 errors, 0 warnings |
 | `pnpm typecheck` | pass — `tsc --noEmit`, 0 errors |
-| `pnpm test` | pass — 3 files, 12 tests |
+| `pnpm test` | pass — 4 files, 15 tests |
 | `pnpm build` | pass — Next.js production build, all routes compiled |
 | `pnpm db:generate` | pass — `drizzle/0000_graceful_sentinel.sql` committed |
 | `pnpm db:migrate` | pass — applied to the real Neon database (verified empty schema first) |
@@ -31,7 +31,9 @@ Everything below was executed on this machine against the real repository, a rea
 | `scripts/render-smoke.ts` | pass — real multi-shot FFmpeg render, 1080×1920 H.264 + AAC, 11.6 s |
 | `scripts/workflow-smoke.ts` | pass — full database-backed BullMQ workflow (details below) |
 | `docker build -t ai-video-studio:local .` | pass — production image with FFmpeg |
-| `docker compose up` | web + worker + Redis, shared media volume (see Docker section) |
+| `docker compose up -d` | pass — web healthy, worker running, Redis healthy |
+| `docker compose exec web pnpm db:migrate` | pass — migrations run inside the container against Neon |
+| Container FFmpeg render (`scripts/render-smoke.ts` in `web`) | pass — 1080×1920 H.264 + AAC, 11.6 s, built by the image's FFmpeg 5.1 |
 | `scripts/live-agnes.ts` | **partial** — text model verified live; video blocked by account quota |
 
 ## Acceptance matrix
@@ -98,6 +100,63 @@ The render exercises clip normalization (scale/crop/setsar/fps), mixed transitio
 - **Resend — API reachable, sending unverified.** `GET https://api.resend.com/domains` returned `200` with one **verified** domain (`aigenstudio.app`). Magic-link delivery is implemented server-side through Resend, but no real inbox delivery was attempted because `RESEND_FROM_EMAIL` and an authorized recipient were not supplied.
 - **Duplicates were deliberately avoided.** When the adapter cannot know whether a submit succeeded (timeout, connection reset, 5xx with no response), the submission is committed as `SUBMITTING` before the call, and failure to determine the outcome persists `UNCERTAIN` with a manual-retry path that warns about possible duplicate charges.
 
+## Interface verification (real browser, production build)
+
+The production server (`npm run start` behind the real Neon database) was driven in a real Chromium session with an authenticated magic-link session, at 1280 px and 390×844 mobile viewports:
+
+| Screen | Result |
+| --- | --- |
+| `/sign-in`, `/sign-up` | Clean card, email-only, "Check your inbox" confirmation state |
+| `/dashboard` | Stat cards (total, in progress, completed, failed) read real Neon counts; recent generation card shows the real thumbnail |
+| `/generations` | Search, status filter, sort and pagination controls render; card grid shows real thumbnails and status badges |
+| `/generations/new` | All documented fields present (`topic, targetDuration, language, platform, aspectRatio, contentFormat, visualStyle, customInstructions`) inside a collapsed Advanced section |
+| `/generations/[id]` | Header status and progress bar, working `<video>` player streaming through `/api/media/[id]`, shot timeline with thumbnails/durations/statuses, shot inspector with prompt, duration, mode, transition, character, reference and continuity controls, plus tabs for script and scenes, and audio and captions |
+| `/characters` | Empty state plus create form with reference-image upload |
+| `/settings` | Reports Database/Redis/FFmpeg ready, Agnes configured, Resend not fully configured, video model and concurrency |
+| Mobile (390 px) | Sidebar collapses behind a menu button, no horizontal overflow, stat cards stack, buttons stay reachable |
+
+One real defect was found and fixed during this pass: Iconsax outline icons rendered invisibly under React 19 (the library's colour prop is not applied), so a scoped `stroke: currentColor` rule now supplies the outline. Screenshots were captured after the fix.
+
+## Docker verification
+
+```bash
+docker compose build
+docker compose up -d
+docker compose exec web pnpm db:migrate
+docker compose exec web ./node_modules/.bin/tsx scripts/render-smoke.ts
+```
+
+Observed results on this machine:
+
+| Check | Result |
+| --- | --- |
+| `docker compose build` | pass — image `ai-video-studio:local` built with FFmpeg 5.1.9 and DejaVu fonts |
+| `docker compose ps` | `redis` healthy, `web` healthy (HTTP healthcheck), `worker` running |
+| `http://127.0.0.1:3000/sign-in` | 200 — the standalone server serves the real application |
+| `docker compose exec web pnpm db:migrate` | pass — migrations applied against Neon from inside the container |
+| `docker compose exec web ./node_modules/.bin/tsx scripts/render-smoke.ts` | pass — 1080×1920 H.264 High 30 fps + AAC stereo, 11.6 s, rendered by the image's own FFmpeg |
+| Shared media volume | `ls /app/data/verification` returns the same files in `web` and `worker` |
+| Container worker → Redis | `redis-cli keys 'bull:*'` lists all four registered queues (`generation-planning`, `video-generation`, `video-rendering`, `generation-cleanup`) |
+
+Two real container defects were found and fixed during this pass:
+
+1. The worker crash-looped because `pnpm` could not write a lockfile in a root-owned `/app`; the runtime stage now chowns `/app` to `node` and the worker runs TypeScript through `./node_modules/.bin/tsx` instead of a package-manager script.
+2. `pnpm db:migrate` inside the container failed with `ERR_PNPM_IGNORED_BUILDS` because `pnpm-workspace.yaml` (which holds the build-script allow list) and `pnpm-lock.yaml` were missing from the runtime stage; both are now copied.
+
+## HTTP and security checks (production build, real session)
+
+| Check | Observed |
+| --- | --- |
+| `GET /api/studio/generations` without a session | 401 `Sign in to continue.` |
+| `GET /api/media/<render>` without a session | 404 (existence is not disclosed) |
+| `GET /api/media/<render>` with the owning session | 200, 862 933 bytes, `Content-Type: video/mp4`, `X-Content-Type-Options: nosniff` |
+| `GET /api/media/<render>` with `Range: bytes=0-49` | 206 with 100 bytes, `Accept-Ranges: bytes` |
+| `GET /api/media/<render>?download=1` | `Content-Disposition: attachment; filename="studio-<id>.mp4"` |
+| `POST /api/studio/generations` with `Origin: http://evil.example` | 403 `Invalid request origin` |
+| `GET /api/studio/generations/<valid but unknown uuid>` | 404 `Not found.` |
+| `GET /api/studio/generations/not-a-uuid` | 400 `Check the submitted fields.` |
+| `GET /does-not-exist` | 404 with the application not-found page |
+
 ## Docker verification
 
 ```bash
@@ -107,6 +166,14 @@ docker compose exec web pnpm db:migrate
 ```
 
 The image is a multi-stage build on `node:24-bookworm-slim` with FFmpeg and `fonts-dejavu-core`. Compose runs `web` (Next.js standalone server), `worker` (`pnpm worker`), and `redis` (append-only, `noeviction`), with a shared `media` volume mounted at `/app/data` on both processes and a healthcheck on Redis. The web port is bound to `127.0.0.1` only. `.dockerignore` excludes `.env`, `.env.*`, `data/` and `node_modules`, and the Next.js build excludes `.env*` and `data/**` from output file tracing, so secrets never enter an image layer.
+
+### Container evidence
+
+- `docker compose ps` → `web` healthy (HTTP healthcheck on `/sign-in`), `worker` up and stable, `redis` healthy.
+- The worker container registered all four BullMQ queues: `redis-cli keys 'bull:*'` returned `bull:generation-planning:*`, `bull:video-generation:*`, `bull:video-rendering:*`, `bull:generation-cleanup:*`.
+- Shared storage is genuinely shared: `docker compose exec web ls /app/data/verification` and `docker compose exec worker ls /app/data/verification` returned the same files.
+- The render smoke executed inside the `web` container wrote `/app/data/verification/multi-shot.mp4` (1080×1920, H.264 High, 30 fps, AAC stereo), proving FFmpeg, the caption font and the media volume work in the shipped image.
+- Two real container defects were found and fixed: the runtime `/app` tree was not writable by the `node` user (breaking `pnpm worker` and `pnpm db:migrate`), and the runtime stage was missing `pnpm-lock.yaml`, `pnpm-workspace.yaml` and `.npmrc`, which made pnpm refuse to run with an ignored-builds error.
 
 ## Known limitations
 
@@ -124,7 +191,9 @@ The image is a multi-stage build on `node:24-bookworm-slim` with FFmpeg and `fon
 | --- | --- |
 | Repository | `https://github.com/mariechristsagbo/ai-video-studio` (private) |
 | Local path | `/home/marie-christ/projects/ai-video-studio` |
-| Workflow fixture generation | `37280a14-8ee9-412a-b96c-f00528b07dd8` (fixture, removed after verification) |
-| Workflow fixture render asset | `56ffdf54-e852-4f87-94b1-b5d56785587b` (fixture) |
-| Auth smoke user | created and deleted by the smoke script; only `userId` retained in `data/verification/session.json` |
+| Fixture projects | Every smoke and UI fixture creates its own user, project and media, then removes them; nothing is left in Neon or on disk |
+| Workflow smoke | `tsx scripts/workflow-smoke.ts` — self-contained, asserts ownership, idempotency, regeneration, uncertain submits and rendering |
+| Auth smoke | `tsx scripts/auth-smoke.ts` — official magic link through the test mail boundary; the identity is deleted afterwards |
+| UI fixture | `tsx scripts/ui-fixture.ts` seeds a labelled demo project with a real render; `tsx scripts/ui-fixture.ts clean` removes it |
+| Container stack | `docker compose up -d` (web on `127.0.0.1:3000`, worker, Redis with a persistent volume) |
 | Secrets | `.env` only (mode `0600`, git-ignored); never logged, never committed |

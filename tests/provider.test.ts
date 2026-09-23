@@ -1,17 +1,11 @@
 import { it, expect, vi } from "vitest";
-import {
-  AgnesProvider,
-  ProviderError,
-  structured,
-} from "../src/providers/agnes";
+import { AgnesProvider, ProviderError, structured } from "../src/providers/agnes";
 import { z } from "zod";
 it("uses the current documented video_id polling contract", async () => {
   process.env.AGNES_API_KEY = "test-only";
   const http = vi
     .fn<typeof fetch>()
-    .mockResolvedValueOnce(
-      Response.json({ video_id: "video_test", status: "queued" }),
-    )
+    .mockResolvedValueOnce(Response.json({ video_id: "video_test", status: "queued" }))
     .mockResolvedValueOnce(
       Response.json({
         video_id: "video_test",

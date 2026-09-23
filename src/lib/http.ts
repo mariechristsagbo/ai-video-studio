@@ -36,14 +36,18 @@ const safe = new Set([
 export function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   const mapped = codes[message];
-  if (mapped) return Response.json({ error: mapped.message }, { status: mapped.status });
+  if (mapped)
+    return Response.json({ error: mapped.message }, { status: mapped.status });
   if (message === "Invalid request origin")
     return Response.json({ error: message }, { status: 403 });
   if (error instanceof ZodError)
     return Response.json({ error: "Check the submitted fields." }, { status: 400 });
   if (safe.has(message)) return Response.json({ error: message }, { status: 400 });
   return Response.json(
-    { error: "The operation could not be completed. Check the system status and try again." },
+    {
+      error:
+        "The operation could not be completed. Check the system status and try again.",
+    },
     { status: 500 },
   );
 }

@@ -156,6 +156,19 @@ drizzle/            committed SQL migrations
 
 See `docs/verification.md` for the acceptance matrix, the exact commands that were executed, and the provider checks that could not be live-tested with the supplied credentials.
 
+```bash
+pnpm exec tsx scripts/preflight.ts        # database, Resend and configuration probe
+pnpm exec tsx scripts/auth-smoke.ts       # magic-link identity, single-use link, session
+pnpm exec tsx scripts/render-smoke.ts     # real multi-shot FFmpeg render with captions and audio mix
+pnpm exec tsx scripts/workflow-smoke.ts   # full BullMQ workflow against the real database
+pnpm exec tsx scripts/live-agnes.ts       # live Agnes text call and a single minimal video attempt
+pnpm exec tsx scripts/ui-fixture.ts       # optional labelled demo project for UI review (add `clean` to remove)
+pnpm exec tsx scripts/db-counts.ts        # table inventory
+pnpm exec tsx scripts/clean-fixtures.ts   # remove any reserved @example.invalid verification residue
+```
+
+Every verification script creates and removes its own reserved `@example.invalid` identity, so the database is left exactly as it was found.
+
 ## Scope
 
 Publishing to TikTok or YouTube, analytics, billing, teams, AI music generation and collaborative editing are intentionally outside this MVP.

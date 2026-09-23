@@ -19,9 +19,9 @@ describe("narration-first planning", () => {
     expect(() => planShotDurations(0)).toThrow();
   });
   it("rejects malformed storyboards", () =>
-    expect(
-      storyboardSchema.safeParse({ scenes: [{ title: "bad" }] }).success,
-    ).toBe(false));
+    expect(storyboardSchema.safeParse({ scenes: [{ title: "bad" }] }).success).toBe(
+      false,
+    ));
   it("reports factual phase progress", () => {
     expect(progress("COMPLETED", 2, 2)).toBe(100);
     expect(progress("GENERATING", 1, 2)).toBe(53);
