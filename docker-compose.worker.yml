@@ -1,0 +1,51 @@
+# Worker-only deployment: the web application runs on Vercel and this host only consumes
+# the queue (planning, Agnes polling, FFmpeg rendering) plus its Redis.
+#   docker compose -f docker-compose.worker.yml up -d --build
+#   docker compose -f docker-compose.worker.yml run --rm worker ./node_modules/.bin/tsx src/db/migrate.ts
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-video-studio:worker
+    # Runs TypeScript directly so the worker never needs a writable package manager.
+    command: ["./node_modules/.bin/tsx", "src/workers/main.ts"]
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /app/data
+      REDIS_URL: ${COMPOSE_REDIS_URL:-redis://redis:6379}
+      # Serverless hosting requires object storage; the worker must use the same driver.
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-cloudinary}
+    volumes:
+      - media:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "--input-type=module",
+          "-e",
+          "const R=(await import('ioredis')).default;const r=new R(process.env.REDIS_URL);try{await r.ping();r.disconnect();process.exit(0)}catch{process.exit(1)}",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  media:
+  redis:

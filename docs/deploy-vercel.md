@@ -61,11 +61,23 @@ Notes:
 
 Vercel detects pnpm from `pnpm-lock.yaml` and uses the Node version from `engines` (`>=22`).
 
+Everything below runs non-interactively with a machine token. Create one at
+Account Settings → Tokens, put it in `.env` as `VERCEL_TOKEN=...`, and the values are pushed
+without ever being echoed:
+
 ```bash
-pnpm dlx vercel link      # or: vercel link
-pnpm dlx vercel env pull  # optional, writes .env.local for local runs
-pnpm dlx vercel --prod
+pnpm dlx vercel@latest link --yes --project ai-video-studio
+pnpm exec tsx scripts/vercel-env.ts --url https://<your-app>.vercel.app   # pushes every variable
+pnpm exec tsx scripts/vercel-env.ts --url https://<your-app>.vercel.app --dry-run  # names only
+pnpm dlx vercel@latest --prod
 ```
+
+`scripts/vercel-env.ts` reads the values from `.env`, fills production defaults for the optional
+settings, and fails with the list of anything it still needs:
+`DATABASE_URL`, `REDIS_URL`, `BETTER_AUTH_SECRET`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`,
+`AGNES_API_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+It also warns when `REDIS_URL` is not a managed TLS endpoint (`rediss://`), because Vercel has to
+reach Redis over the public internet — Upstash's free tier is the usual choice.
 
 Migrations are **not** run by the deployment. Apply them from a machine with the production
 `DATABASE_URL`:
@@ -80,20 +92,22 @@ The repository already builds a Docker image that contains FFmpeg, the fonts cap
 worker and the migration entrypoint.
 
 ```bash
-docker build -t ai-video-studio .
-docker run -d --name studio-worker --restart unless-stopped \
-  --env-file .env \
-  -e DATABASE_URL=... -e REDIS_URL=rediss://... \
-  -e STORAGE_DRIVER=cloudinary -e CLOUDINARY_CLOUD_NAME=... \
-  -e CLOUDINARY_API_KEY=... -e CLOUDINARY_API_SECRET=... \
-  -v studio-media:/app/data \
-  ai-video-studio ./node_modules/.bin/tsx src/workers/main.ts
+git clone git@github.com:mariechristsagbo/ai-video-studio.git /srv/ai-video-studio
+cd /srv/ai-video-studio
+cp .env.example .env && $EDITOR .env     # Neon, Cloudinary, Agnes, and a local Redis URL
+docker compose -f docker-compose.worker.yml up -d --build
+docker compose -f docker-compose.worker.yml ps       # worker healthy, redis healthy
+docker compose -f docker-compose.worker.yml run --rm worker \
+  ./node_modules/.bin/tsx src/db/migrate.ts          # apply migrations from here when needed
+docker compose -f docker-compose.worker.yml logs -f worker | grep job_processed
 ```
 
-Docker Compose is only needed if you also want to run the web container; against Vercel you need the
-worker (and its Redis) alone.
-
-`docker compose up -d --build` still works for a self-hosted deployment of both parts.
+`docker-compose.worker.yml` runs only the worker and Redis, forces `STORAGE_DRIVER=cloudinary`
+(so the worker writes to the same place the serverless web app reads from), keeps a health check on
+the Redis connection, and persists both the Redis data and the media cache in named volumes. Its
+image is the same Dockerfile used for a fully self-hosted deployment, so
+`docker compose up -d --build` with the main `docker-compose.yml` still runs web + worker + redis
+together when Vercel is not in the picture.
 
 ## 5. What still works, and what does not
 
