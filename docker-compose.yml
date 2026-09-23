@@ -1,0 +1,44 @@
+services:
+  web:
+    build: .
+    image: ai-video-studio:local
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /app/data
+      REDIS_URL: ${COMPOSE_REDIS_URL:-redis://redis:6379}
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - media:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+  worker:
+    image: ai-video-studio:local
+    build: .
+    command: ["pnpm", "worker"]
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /app/data
+      REDIS_URL: ${COMPOSE_REDIS_URL:-redis://redis:6379}
+    volumes:
+      - media:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  media:
+  redis:

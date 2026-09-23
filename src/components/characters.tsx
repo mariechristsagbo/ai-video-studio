@@ -1,10 +1,184 @@
 "use client";
-import { useState,useEffect } from 'react';
-import { Profile2User,Add } from 'iconsax-react';
-import { api } from './client-api';
-import { Card } from './ui/card';
-import { Input,Textarea } from './ui/input';
-import { Button } from './ui/button';
-import type { characters } from '@/db/schema';
-type Character=typeof characters.$inferSelect;
-export function Characters(){const [list,setList]=useState<Character[]>([]),[editing,setEditing]=useState<Character>(),[reference,setReference]=useState<string|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');const load=()=>api<Character[]>('characters').then(setList);useEffect(()=>{void load().catch(e=>setError(e.message));},[]);return <><header className="page-top"><div><div className="eyebrow">A familiar face in every frame</div><h1>Characters</h1><p>Reusable identities for a visually consistent story.</p></div></header>{error&&<div className="error">{error}</div>}<div className="character-layout"><div>{!list.length?<div className="empty"><Profile2User size={38} style={{margin:'auto'}}/><h2>Build your cast</h2><p>Create reusable characters to keep visual identity consistent across generations.</p></div>:<div className="grid">{list.map(c=><Card className="character-card" key={c.id}>{c.referenceId&&<img src={`/api/media/${c.referenceId}`} alt={c.name}/>}<h2>{c.name}</h2><p>{c.description}</p><small>Created {new Date(c.createdAt).toLocaleDateString('en')}</small><div className="row space-top"><Button size="sm" variant="outline" onClick={()=>{setEditing(c);setReference(c.referenceId);}}>Edit</Button><Button size="sm" variant="ghost" onClick={async()=>{if(!confirm('Delete this reusable character?'))return;try{await api(`characters/${c.id}/delete`,c);await load();}catch(e){setError((e as Error).message);}}}>Delete</Button></div></Card>)}</div>}</div><Card><h2>{editing?'Edit character':'New character'}</h2><form key={editing?.id||'new'} onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');const data=Object.fromEntries(new FormData(e.currentTarget));try{await api(editing?`characters/${editing.id}`:'characters',{...data,referenceId:reference});setEditing(undefined);setReference(null);await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}><label className="field"><span>Name</span><Input name="name" defaultValue={editing?.name} required placeholder="The Archivist" maxLength={100}/></label><label className="field"><span>Description</span><Textarea name="description" defaultValue={editing?.description} required placeholder="Who is this character?" maxLength={3000}/></label><label className="field"><span>Stable visual prompt</span><Textarea name="visualPrompt" defaultValue={editing?.visualPrompt} required placeholder="Appearance, clothing, distinctive features…" maxLength={3000}/></label><label className="field"><span>Reference image</span><input type="file" accept="image/png,image/jpeg,image/webp" style={{width:'100%',fontSize:11}} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;setBusy(true);try{const f=new FormData();f.set('file',file);const result=await api<{id:string}>('characters/upload',f);setReference(result.id);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}/>{reference&&<small>Reference image attached</small>}</label><Button disabled={busy} className="full-width"><Add size={16}/>{editing?'Save character':'Create character'}</Button>{editing&&<Button variant="ghost" type="button" onClick={()=>{setEditing(undefined);setReference(null);}}>Cancel</Button>}</form></Card></div></>;}
+import { useState, useEffect } from "react";
+import { Profile2User, Add } from "iconsax-react";
+import { api } from "./client-api";
+import { Card } from "./ui/card";
+import { Input, Textarea } from "./ui/input";
+import { Button } from "./ui/button";
+import type { characters } from "@/db/schema";
+type Character = typeof characters.$inferSelect;
+export function Characters() {
+  const [list, setList] = useState<Character[]>([]),
+    [editing, setEditing] = useState<Character>(),
+    [reference, setReference] = useState<string | null>(null),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const load = () => api<Character[]>("characters").then(setList);
+  useEffect(() => {
+    void load().catch((e) => setError(e.message));
+  }, []);
+  return (
+    <>
+      <header className="page-top">
+        <div>
+          <div className="eyebrow">A familiar face in every frame</div>
+          <h1>Characters</h1>
+          <p>Reusable identities for a visually consistent story.</p>
+        </div>
+      </header>
+      {error && <div className="error">{error}</div>}
+      <div className="character-layout">
+        <div>
+          {!list.length ? (
+            <div className="empty">
+              <Profile2User size={38} style={{ margin: "auto" }} />
+              <h2>Build your cast</h2>
+              <p>
+                Create reusable characters to keep visual identity consistent across
+                generations.
+              </p>
+            </div>
+          ) : (
+            <div className="grid">
+              {list.map((c) => (
+                <Card className="character-card" key={c.id}>
+                  {c.referenceId && (
+                    <img src={`/api/media/${c.referenceId}`} alt={c.name} />
+                  )}
+                  <h2>{c.name}</h2>
+                  <p>{c.description}</p>
+                  <small>
+                    Created {new Date(c.createdAt).toLocaleDateString("en")}
+                  </small>
+                  <div className="row space-top">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditing(c);
+                        setReference(c.referenceId);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        if (!confirm("Delete this reusable character?")) return;
+                        try {
+                          await api(`characters/${c.id}/delete`, c);
+                          await load();
+                        } catch (e) {
+                          setError((e as Error).message);
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+        <Card>
+          <h2>{editing ? "Edit character" : "New character"}</h2>
+          <form
+            key={editing?.id || "new"}
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setBusy(true);
+              setError("");
+              const data = Object.fromEntries(new FormData(e.currentTarget));
+              try {
+                await api(editing ? `characters/${editing.id}` : "characters", {
+                  ...data,
+                  referenceId: reference,
+                });
+                setEditing(undefined);
+                setReference(null);
+                await load();
+              } catch (e) {
+                setError((e as Error).message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <label className="field">
+              <span>Name</span>
+              <Input
+                name="name"
+                defaultValue={editing?.name}
+                required
+                placeholder="The Archivist"
+                maxLength={100}
+              />
+            </label>
+            <label className="field">
+              <span>Description</span>
+              <Textarea
+                name="description"
+                defaultValue={editing?.description}
+                required
+                placeholder="Who is this character?"
+                maxLength={3000}
+              />
+            </label>
+            <label className="field">
+              <span>Stable visual prompt</span>
+              <Textarea
+                name="visualPrompt"
+                defaultValue={editing?.visualPrompt}
+                required
+                placeholder="Appearance, clothing, distinctive features…"
+                maxLength={3000}
+              />
+            </label>
+            <label className="field">
+              <span>Reference image</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                style={{ width: "100%", fontSize: 11 }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setBusy(true);
+                  try {
+                    const f = new FormData();
+                    f.set("file", file);
+                    const result = await api<{ id: string }>("characters/upload", f);
+                    setReference(result.id);
+                  } catch (e) {
+                    setError((e as Error).message);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              />
+              {reference && <small>Reference image attached</small>}
+            </label>
+            <Button disabled={busy} className="full-width">
+              <Add size={16} />
+              {editing ? "Save character" : "Create character"}
+            </Button>
+            {editing && (
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => {
+                  setEditing(undefined);
+                  setReference(null);
+                }}
+              >
+                Cancel
+              </Button>
+            )}
+          </form>
+        </Card>
+      </div>
+    </>
+  );
+}

@@ -1,1 +1,3 @@
-export default function Loading(){return <div className="loading" aria-label="Loading workspace"/>;}
+export default function Loading() {
+  return <div className="loading" aria-label="Loading workspace" />;
+}
