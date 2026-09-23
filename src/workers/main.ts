@@ -132,6 +132,9 @@ export async function processJob(
         retry,
         category:
           error instanceof ProviderError ? `provider_${error.code}` : "internal",
+        // Server-side only: the stored/user-facing message stays sanitized, but a failed job must be
+        // diagnosable without reproducing it by hand.
+        detail: (error instanceof Error ? error.message : String(error)).slice(0, 300),
       }),
     );
   }

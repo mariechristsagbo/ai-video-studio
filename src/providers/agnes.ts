@@ -145,10 +145,29 @@ export class UploadedNarrationProvider implements NarrationProvider {
     throw new Error("Upload a continuous narration recording in the editor");
   }
 }
+/** Models often wrap their answer in markdown fences or add a sentence around it: recover the
+ * JSON object before parsing, and only then validate it against the schema. */
+export function parseJsonAnswer(raw: string): unknown {
+  const trimmed = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start === -1 || end <= start) throw new Error("Model answer contained no JSON object");
+    return JSON.parse(trimmed.slice(start, end + 1));
+  }
+}
+
 export async function structured<T>(
   provider: TextProvider,
   prompt: string,
   schema: z.ZodType<T>,
+  normalize?: (raw: unknown) => unknown,
 ): Promise<T> {
   let last = "";
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -159,9 +178,8 @@ export async function structured<T>(
           : ""),
     );
     try {
-      return schema.parse(
-        JSON.parse(answer.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "")),
-      );
+      const raw = parseJsonAnswer(answer);
+      return schema.parse(normalize ? normalize(raw) : raw);
     } catch (error) {
       last =
         error instanceof z.ZodError

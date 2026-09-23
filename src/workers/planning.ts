@@ -7,6 +7,8 @@ import {
   bibleSchema,
   storyboardSchema,
   planShotDurations,
+  fitShotsToTimeline,
+  normalizeStoryboard,
 } from "../domain/video";
 import { structured, type TextProvider } from "../providers/agnes";
 import type { Job, Generation } from "../generations/repository";
@@ -48,12 +50,25 @@ export async function plan(job: Job, g: Generation, provider: TextProvider) {
   const durations = planShotDurations(duration);
   const board = await structured(
     provider,
-    `Storyboard this exact narration: ${script}. Context ${context}. Visual bible ${JSON.stringify(bible)}. Narration drives the timeline. Create narrative scenes with title,narration,shots. There must be exactly ${durations.length} shots in order with durations ${JSON.stringify(durations)}. Each shot needs duration,visualDescription,videoPrompt,camera,environment,transition (cut/fade/crossfade), mode=text. Prompts describe subject,action,environment,camera,composition,lighting,mood,physical movement and continuity. Never include captions in video frames. Return {"scenes":[...]}.`,
+    `Storyboard this exact narration: ${script}. Context ${context}. Visual bible ${JSON.stringify(bible)}. Narration drives the timeline. Create narrative scenes with title,narration,shots. There must be exactly ${durations.length} shots in order with durations ${JSON.stringify(durations)}. Each shot needs duration,visualDescription,videoPrompt,camera,environment,transition (cut/fade/crossfade), mode=text. Prompts describe subject,action,environment,camera,composition,lighting,mood,physical movement and continuity. Never include captions in video frames. Return exactly {"scenes":[{"title":"...","narration":"...","shots":[{"duration":8,"visualDescription":"...","videoPrompt":"...","camera":"...","environment":"...","transition":"cut","mode":"text"}]}]} — every shot must sit inside its scene's shots array.`,
     storyboardSchema,
+    normalizeStoryboard,
   );
-  const flat = board.scenes.flatMap((s) => s.shots);
-  if (flat.length !== durations.length)
-    throw new Error("Storyboard shot count does not match narration timing");
+  // The storyboard is fitted to the narration rather than rejected for a small count difference.
+  const fitted = fitShotsToTimeline(
+    board.scenes.flatMap((s) => s.shots),
+    duration,
+  );
+  let cursor = 0;
+  const plan = board.scenes
+    .map((scene) => {
+      const take = Math.max(0, Math.min(scene.shots.length, fitted.shots.length - cursor));
+      const kept = fitted.shots.slice(cursor, cursor + take);
+      cursor += take;
+      return { ...scene, shots: kept };
+    })
+    .filter((scene) => scene.shots.length > 0);
+  if (cursor < fitted.shots.length) plan[plan.length - 1].shots.push(...fitted.shots.slice(cursor));
   await db.transaction(async (tx) => {
     const [current] = await tx
       .select()
@@ -63,8 +78,8 @@ export async function plan(job: Job, g: Generation, provider: TextProvider) {
     if (!current || current.revision !== job.version) return;
     await tx.delete(scenes).where(eq(scenes.generationId, g.id));
     let position = 0;
-    for (let i = 0; i < board.scenes.length; i++) {
-      const scene = board.scenes[i];
+    for (let i = 0; i < plan.length; i++) {
+      const scene = plan[i];
       const [row] = await tx
         .insert(scenes)
         .values({
@@ -77,7 +92,7 @@ export async function plan(job: Job, g: Generation, provider: TextProvider) {
       for (const shot of scene.shots) {
         await tx.insert(shots).values({
           ...shot,
-          duration: durations[position],
+          duration: fitted.durations[position],
           position: position++,
           generationId: g.id,
           sceneId: row.id,

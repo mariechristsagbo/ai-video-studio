@@ -5,6 +5,7 @@ import {
   AGNES_DEFAULT_BASE_URL,
   AGNES_DEFAULT_VIDEO_MODEL,
   AGNES_DEFAULT_TEXT_MODEL,
+  parseJsonAnswer,
 } from "../src/providers/agnes";
 import { downloadPublic } from "../src/storage";
 import { probe } from "../src/render/process";
@@ -14,7 +15,10 @@ const record: Record<string, unknown> = {
   model: process.env.AGNES_VIDEO_MODEL,
 };
 const text = await provider.generate('Return only JSON: {"status":"ok"}.');
-record.textModel = { reachable: true, validJson: JSON.parse(text).status === "ok" };
+record.textModel = {
+  reachable: true,
+  validJson: (parseJsonAnswer(text) as { status?: string }).status === "ok",
+};
 // Diagnostic only: reports the provider status and message, never credentials.
 const diagnostic = await fetch(
   `${process.env.AGNES_BASE_URL || AGNES_DEFAULT_BASE_URL}/videos`,
