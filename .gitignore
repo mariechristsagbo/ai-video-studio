@@ -5,3 +5,8 @@ node_modules
 data/
 coverage/
 *.tsbuildinfo
+
+# Local secrets must never be committed.
+.env
+.env.*
+!.env.example
