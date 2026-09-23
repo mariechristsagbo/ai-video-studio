@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -10,7 +11,6 @@ import {
   Profile2User,
   Setting2,
   VideoHorizontal,
-  VideoPlay,
 } from "iconsax-react";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Badge } from "./ui/badge";
@@ -60,7 +60,9 @@ export function Shell({
   const initials = (user.name || user.email).slice(0, 2).toUpperCase();
   const isActive = (href: string) =>
     path === href ||
-    (href === "/generations" && path.startsWith("/generations/") && path !== "/generations/new");
+    (href === "/generations" &&
+      path.startsWith("/generations/") &&
+      path !== "/generations/new");
   async function signOut() {
     await fetch("/api/auth/sign-out", {
       method: "POST",
@@ -78,12 +80,16 @@ export function Shell({
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild tooltip="Brio">
                 <Link href="/dashboard">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                    <VideoPlay size={18} variant="Bold" />
-                  </span>
-                  <span className="grid flex-1 text-left leading-tight">
-                    <span className="truncate text-sm font-semibold tracking-tight">Brio</span>
-                    <span className="truncate text-xs text-muted-foreground">Video studio</span>
+                  <Image
+                    src="/brio-mark.png"
+                    alt=""
+                    width={28}
+                    height={28}
+                    priority
+                    className="size-7 shrink-0"
+                  />
+                  <span className="truncate text-[15px] font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
+                    Brio
                   </span>
                 </Link>
               </SidebarMenuButton>
@@ -97,7 +103,11 @@ export function Shell({
               <SidebarMenu>
                 {links.map(([href, label, Icon]) => (
                   <SidebarMenuItem key={href}>
-                    <SidebarMenuButton asChild isActive={isActive(href)} tooltip={label}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(href)}
+                      tooltip={label}
+                    >
                       <Link href={href}>
                         <Icon size={18} variant="Linear" />
                         <span>{label}</span>
@@ -124,8 +134,12 @@ export function Shell({
                       </AvatarFallback>
                     </Avatar>
                     <span className="grid flex-1 text-left leading-tight">
-                      <span className="truncate text-sm font-medium">{user.name || user.email}</span>
-                      <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                      <span className="truncate text-sm font-medium">
+                        {user.name || user.email}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {user.email}
+                      </span>
                     </span>
                     <Badge
                       variant="secondary"
@@ -149,7 +163,10 @@ export function Shell({
                     </span>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="flex items-center justify-between gap-4" disabled>
+                  <DropdownMenuItem
+                    className="flex items-center justify-between gap-4"
+                    disabled
+                  >
                     <span className="flex items-center gap-2 text-muted-foreground">
                       <Coin size={16} variant="Linear" />
                       Credits left
@@ -186,7 +203,9 @@ export function Shell({
             <HambergerMenu size={20} />
           </SidebarTrigger>
         </header>
-        <div className="flex-1 px-5 pb-12 pt-6 md:px-8 md:pt-10 lg:px-12">{children}</div>
+        <div className="flex-1 px-5 pb-12 pt-6 md:px-8 md:pt-10 lg:px-12">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

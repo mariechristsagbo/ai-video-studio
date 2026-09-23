@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { VideoPlay, Sms, ArrowRight } from "iconsax-react";
+import { Sms, ArrowRight } from "iconsax-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card } from "./ui/card";
@@ -17,10 +18,15 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
           className="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight"
           href="/"
         >
-          <span className="flex size-8 items-center justify-center rounded-[9px] bg-primary text-primary-foreground">
-            <VideoPlay size={19} variant="Bold" />
-          </span>
-          Video Studio
+          <Image
+            src="/brio-mark.png"
+            alt=""
+            width={28}
+            height={28}
+            priority
+            className="size-7"
+          />
+          Brio
         </Link>
         {sent ? (
           <>
