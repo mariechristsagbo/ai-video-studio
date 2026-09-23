@@ -12,8 +12,8 @@ type Status = {
   model: string;
   concurrency: number;
   storage: string;
-  detail: string;
-  ready: boolean;
+  storageReady: boolean;
+  storageDetail: string;
 };
 export function Settings() {
   const [data, setData] = useState<Status>(),
@@ -45,7 +45,7 @@ export function Settings() {
               ["FFmpeg", data.ffmpeg],
               ["Agnes API configured", data.agnes],
               ["Resend email configured", data.resend],
-              ["Media storage", data.ready],
+              ["Media storage", data.storageReady],
             ].map(([label, ok]) => (
               <div className="setting-row" key={String(label)}>
                 <span>{String(label)}</span>
@@ -65,7 +65,7 @@ export function Settings() {
             <div className="setting-row">
               <span>Storage</span>
               <small>
-                {data.storage} · {data.detail}
+                {data.storage} · {data.storageDetail}
               </small>
             </div>
           </>

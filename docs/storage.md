@@ -86,3 +86,5 @@ STORAGE_DRIVER=cloudinary pnpm exec tsx scripts/backfill-cloudinary.ts
   stubbed HTTP, failure messages, and driver selection/validation.
 - `STORAGE_DRIVER=cloudinary pnpm exec tsx scripts/cloudinary-smoke.ts` performs a real
   upload → re-download → byte comparison → signed URL → delete cycle against the live account.
+- `pnpm exec tsx scripts/check-settings.ts` prints the exact `/api/studio/settings` payload the
+  Settings page consumes, so the driver name and readiness always match what the UI renders.

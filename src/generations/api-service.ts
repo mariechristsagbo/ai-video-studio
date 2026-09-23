@@ -57,6 +57,7 @@ export async function readRoute(userId: string, path: string[], url: URL) {
       .orderBy(characters.createdAt)
       .limit(100);
   if (path[0] === "settings") {
+    const storageStatus = await storage.describe();
     const [database, redis, ffmpeg] = await Promise.allSettled([
       pool.query("SELECT 1"),
       getRedis().ping(),
@@ -70,7 +71,9 @@ export async function readRoute(userId: string, path: string[], url: URL) {
       resend: !!process.env.RESEND_API_KEY && !!process.env.RESEND_FROM_EMAIL,
       model: process.env.AGNES_VIDEO_MODEL || "agnes-video-2.5",
       concurrency: Number(process.env.VIDEO_GENERATION_CONCURRENCY || 3),
-      ...(await storage.describe()),
+      storage: storageStatus.driver,
+      storageReady: storageStatus.ready,
+      storageDetail: storageStatus.detail,
     };
   }
   throw new Error("NOT_FOUND");
