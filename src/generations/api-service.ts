@@ -101,7 +101,10 @@ export async function writeRoute(userId: string, path: string[], request: Reques
       };
     }
     if (path[2] === "render") {
-      await queueRender(generationId, userId);
+      const data = z
+        .object({ force: z.boolean().default(false) })
+        .parse((await request.json().catch(() => ({}))) ?? {});
+      await queueRender(generationId, userId, data.force);
       return { data: { ok: true } };
     }
     if (path[2] === "replan") {

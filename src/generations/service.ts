@@ -234,7 +234,7 @@ export async function queueShots(
     return { queued };
   });
 }
-export async function queueRender(id: string, userId: string) {
+export async function queueRender(id: string, userId: string, force = false) {
   await ownedGeneration(id, userId);
   return db.transaction(async (tx) => {
     const [g] = await tx
@@ -243,6 +243,9 @@ export async function queueRender(id: string, userId: string) {
       .where(eq(generations.id, id))
       .for("update");
     if (g.deletedAt) throw new Error("NOT_FOUND");
+    // Rendering again with identical inputs would produce an identical version, so
+    // an explicit re-render bumps the revision instead of duplicating work.
+    const revision = force ? g.revision + 1 : g.revision;
     if (g.status === "RENDERING") return;
     const list = await tx
       .select()
@@ -290,7 +293,7 @@ export async function queueRender(id: string, userId: string) {
       const [existing] = await tx
         .select()
         .from(renders)
-        .where(and(eq(renders.generationId, id), eq(renders.version, g.revision)));
+        .where(and(eq(renders.generationId, id), eq(renders.version, revision)));
       if (existing.status === "COMPLETED") return;
       await tx
         .update(renders)
@@ -299,19 +302,19 @@ export async function queueRender(id: string, userId: string) {
       await tx.insert(jobs).values({
         generationId: id,
         kind: "render",
-        version: g.revision,
+        version: revision,
         payload: { renderId: existing.id },
       });
     } else
       await tx.insert(jobs).values({
         generationId: id,
         kind: "render",
-        version: g.revision,
+        version: revision,
         payload: { renderId: r.id },
       });
     await tx
       .update(generations)
-      .set({ status: "RENDERING", updatedAt: new Date() })
+      .set({ status: "RENDERING", revision, updatedAt: new Date() })
       .where(eq(generations.id, id));
   });
 }

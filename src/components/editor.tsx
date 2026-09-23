@@ -194,11 +194,23 @@ export function Editor({ id }: { id: string }) {
                     ? `Shot ${shot.position + 1} preview`
                     : "No preview yet"}
               </small>
-              {latest && (
-                <Button size="sm" variant="ghost" onClick={() => setFinal(!final)}>
-                  {final ? "Open storyboard" : "Watch final video"}
-                </Button>
-              )}
+              <div className="row">
+                {latest && (
+                  <>
+                    <Button size="sm" variant="ghost" onClick={() => setFinal(!final)}>
+                      {final ? "Open storyboard" : "Watch final video"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy || locked || generating > 0 || queued > 0}
+                      onClick={() => void act("render", { force: true })}
+                    >
+                      Render again
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
             <div className="timeline">
               {shots.map((s) => (
