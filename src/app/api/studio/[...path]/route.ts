@@ -31,8 +31,11 @@ export async function POST(request: Request, context: Context) {
         const key = `rate:${user.id}:${Math.floor(Date.now() / 60000)}`;
         count = await client.incr(key);
         if (count === 1) await client.expire(key, 70);
-      } catch {
-        throw new Error("UNAVAILABLE");
+      } catch (error) {
+        // Serverless hosts without a managed Redis cannot count requests. RATE_LIMIT_MODE=lenient
+        // keeps the studio usable and reports the gap in the logs instead of refusing every costly operation.
+        if (process.env.RATE_LIMIT_MODE !== "lenient") throw new Error("UNAVAILABLE");
+        console.warn("Rate limiting unavailable; allowing the request", error);
       }
       if (count > 20) throw new Error("RATE_LIMITED");
     }

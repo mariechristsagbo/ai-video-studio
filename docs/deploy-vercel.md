@@ -7,7 +7,7 @@ a supported place to live instead.
 | --- | --- | --- |
 | Next.js web app, API routes, auth | **Vercel** | Standard Next.js 16 App Router deployment |
 | BullMQ worker (`pnpm worker`) — planning, provider polling, FFmpeg renders | **A container host** (the existing VPS, Railway, Fly, Render) | Serverless functions are short lived and there is no FFmpeg binary in Vercel's runtime |
-| Redis | **Upstash** (or any managed Redis) | Vercel has no Redis; the worker and the API rate limiter share it |
+| Redis | **Upstash** (or any managed Redis) | Vercel has no Redis; the worker and the API rate limiter share it. Without a reachable Redis, costly operations are refused with 503 unless `RATE_LIMIT_MODE=lenient` |
 | PostgreSQL | **Neon** | Already external |
 | Media objects | **Cloudinary** (required) | Vercel's filesystem is read-only apart from `/tmp`, which does not survive an invocation |
 
@@ -77,7 +77,14 @@ settings, and fails with the list of anything it still needs:
 `DATABASE_URL`, `REDIS_URL`, `BETTER_AUTH_SECRET`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`,
 `AGNES_API_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
 It also warns when `REDIS_URL` is not a managed TLS endpoint (`rediss://`), because Vercel has to
-reach Redis over the public internet — Upstash's free tier is the usual choice.
+reach Redis over the public internet — Upstash's free tier is the usual choice. A `localhost` URL is
+skipped rather than pushed, since it cannot work from a serverless function.
+
+Until that managed Redis exists, the deployment can still be used by setting `RATE_LIMIT_MODE=lenient`:
+the rate limiter then logs `Rate limiting unavailable; allowing the request` and lets costly
+operations through instead of answering 503. The default (`strict`) stays fail-closed, so the
+protection against runaway provider spend is never dropped silently. Covered by
+`tests/rate-limit.test.ts`.
 
 Migrations are **not** run by the deployment. Apply them from a machine with the production
 `DATABASE_URL`:
