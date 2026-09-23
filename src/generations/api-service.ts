@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { and, eq, sql, isNull } from "drizzle-orm";
 import { db } from "../db";
-import { generations, characters, assets, shots } from "../db/schema";
+import { generations, characters, assets, shots, user } from "../db/schema";
 import {
   create,
   editGeneration,
@@ -18,6 +18,10 @@ import { storage } from "../storage";
 import { run } from "../render/process";
 import { getRedis } from "../queues/redis";
 const id = z.string().uuid();
+const profileInput = z.object({
+  firstName: z.string().trim().min(1).max(60),
+  lastName: z.string().trim().min(1).max(60),
+});
 const characterSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().min(1).max(3000),
@@ -56,6 +60,20 @@ export async function readRoute(userId: string, path: string[], url: URL) {
       .where(eq(characters.userId, userId))
       .orderBy(characters.createdAt)
       .limit(100);
+  if (path[0] === "profile") {
+    const [row] = await db
+      .select({
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        name: user.name,
+      })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
+    if (!row) throw new Error("NOT_FOUND");
+    return row;
+  }
   if (path[0] === "settings") {
     const storageStatus = await storage.describe();
     const [database, redis, ffmpeg] = await Promise.allSettled([
@@ -80,6 +98,17 @@ export async function readRoute(userId: string, path: string[], url: URL) {
 }
 export async function writeRoute(userId: string, path: string[], request: Request) {
   const body = () => request.json();
+  if (path[0] === "profile") {
+    const input = profileInput.parse(await body());
+    const name = `${input.firstName} ${input.lastName}`.trim();
+    const [row] = await db
+      .update(user)
+      .set({ firstName: input.firstName, lastName: input.lastName, name, updatedAt: new Date() })
+      .where(eq(user.id, userId))
+      .returning({ email: user.email, firstName: user.firstName, lastName: user.lastName, name: user.name });
+    if (!row) throw new Error("NOT_FOUND");
+    return { data: row };
+  }
   if (path[0] === "generations") {
     if (!path[1]) return { status: 201, data: await create(userId, await body()) };
     const generationId = id.parse(path[1]);

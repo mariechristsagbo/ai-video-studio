@@ -1,4 +1,4 @@
-# AI Video Studio
+# Brio
 
 A private studio for generating cinematic educational videos for TikTok, YouTube Shorts, Instagram Reels and YouTube. Give it a topic and it plans a creative brief, writes narration-first script timing, builds a storyboard, generates many short Agnes AI video clips, and assembles them into one finished vertical MP4 with narration, mixed audio and burned-in captions.
 
@@ -61,7 +61,7 @@ Media storage runs on the local disk by default. To keep media in Cloudinary ins
 | `BETTER_AUTH_URL` | Absolute application URL used by Better Auth |
 | `NEXT_PUBLIC_APP_URL` | Public URL of the app (required for Agnes reference media) |
 | `RESEND_API_KEY` | Resend API key used server-side for magic links |
-| `RESEND_FROM_EMAIL` | Verified Resend sender, for example `AI Video Studio <studio@example.com>` |
+| `RESEND_FROM_EMAIL` | Verified Resend sender, for example `Brio <no-reply@your-domain>` |
 | `AGNES_API_KEY` | Agnes AI API key |
 | `AGNES_BASE_URL` | Defaults to `https://apihub.agnes-ai.com/v1` |
 | `AGNES_TEXT_MODEL` | Defaults to `agnes-2.5-flash` |

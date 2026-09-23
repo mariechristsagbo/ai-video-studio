@@ -26,9 +26,9 @@ export function createAuth(sendMail?: MailBoundary) {
           const result = await new Resend(process.env.RESEND_API_KEY).emails.send({
             from: process.env.RESEND_FROM_EMAIL,
             to: email,
-            subject: "Sign in to AI Video Studio",
-            text: `AI Video Studio\nSign in: ${url}\nThis link expires in 10 minutes. Ignore this email if you did not request it.`,
-            html: `<h1>AI Video Studio</h1><p><a href="${escaped}">Sign in to your studio</a></p><p>This link expires in 10 minutes. If you did not request it, ignore this email.</p><p>${escaped}</p>`,
+            subject: "Sign in to Brio",
+            text: `Brio\nSign in: ${url}\nThis link expires in 10 minutes. Ignore this email if you did not request it.`,
+            html: `<h1>Brio</h1><p><a href="${escaped}">Sign in to your studio</a></p><p>This link expires in 10 minutes. If you did not request it, ignore this email.</p><p>${escaped}</p>`,
           });
           if (result.error) throw new Error("Email delivery failed");
         },
