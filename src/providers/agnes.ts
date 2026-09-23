@@ -35,10 +35,14 @@ const responseSchema = z.object({
   status: z.enum(["queued", "in_progress", "completed", "failed"]),
   metadata: z.object({ url: z.url().optional() }).nullable().optional(),
 });
+export const AGNES_DEFAULT_BASE_URL = "https://apihub.agnes-ai.com/v1";
+// Documented defaults; keep in sync with docs/provider-contract.md.
+export const AGNES_DEFAULT_VIDEO_MODEL = "agnes-video-2.5";
+export const AGNES_DEFAULT_TEXT_MODEL = "agnes-2.5-flash";
 export class AgnesProvider implements VideoProvider, TextProvider {
   constructor(private fetcher: typeof fetch = fetch) {}
   private base() {
-    return process.env.AGNES_BASE_URL || "https://apihub.agnes-ai.com/v1";
+    return process.env.AGNES_BASE_URL || AGNES_DEFAULT_BASE_URL;
   }
   private async request(url: string, body?: unknown) {
     if (!process.env.AGNES_API_KEY) throw new ProviderError(401);
@@ -67,7 +71,7 @@ export class AgnesProvider implements VideoProvider, TextProvider {
   }
   async generate(prompt: string) {
     const result = await this.request(`${this.base()}/chat/completions`, {
-      model: process.env.AGNES_TEXT_MODEL || "agnes-2.5-flash",
+      model: process.env.AGNES_TEXT_MODEL || AGNES_DEFAULT_TEXT_MODEL,
       messages: [
         {
           role: "system",
@@ -90,7 +94,7 @@ export class AgnesProvider implements VideoProvider, TextProvider {
     if (!Number.isInteger(input.seconds) || input.seconds < 4 || input.seconds > 12)
       throw new Error("Unsupported shot duration");
     const body: Record<string, unknown> = {
-      model: process.env.AGNES_VIDEO_MODEL || "agnes-video-2.5",
+      model: process.env.AGNES_VIDEO_MODEL || AGNES_DEFAULT_VIDEO_MODEL,
       prompt: input.prompt,
       seconds: String(input.seconds),
       size: "720P",
@@ -123,7 +127,7 @@ export class AgnesProvider implements VideoProvider, TextProvider {
     url.searchParams.set("video_id", id);
     url.searchParams.set(
       "model_name",
-      process.env.AGNES_VIDEO_MODEL || "agnes-video-2.5",
+      process.env.AGNES_VIDEO_MODEL || AGNES_DEFAULT_VIDEO_MODEL,
     );
     return this.map(await this.request(url.toString()));
   }
