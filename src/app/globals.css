@@ -10,7 +10,11 @@
   color-scheme: light;
 }
 * {
-  box-sizing: border-box;
+  /* Iconsax outline paths rely on a colour prop that is not applied under React 19,
+     so the outline is supplied here for the installed icon set. */
+  svg[viewBox="0 0 24 24"][fill="none"]{stroke:currentColor}
+  svg[viewBox="0 0 24 24"][fill="none"] path{stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  *{box-sizing:border-box}
 }
 body {
   margin: 0;
