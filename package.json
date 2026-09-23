@@ -43,11 +43,11 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "drizzle-kit": "latest",
-    "eslint": "latest",
+    "eslint": "^9.39.5",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "latest",
     "tsx": "latest",
-    "typescript": "latest",
+    "typescript": "^6.0.3",
     "vitest": "latest"
   }
 }

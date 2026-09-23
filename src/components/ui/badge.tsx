@@ -1,0 +1,1 @@
+export function Badge({children,status}:{children?:React.ReactNode;status?:string}){return <span className={`badge ${status==='COMPLETED'?'badge-success':status==='FAILED'||status==='UNCERTAIN'?'badge-error':''}`}>{children||status?.replaceAll('_',' ').toLowerCase()}</span>;}
