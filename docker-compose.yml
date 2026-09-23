@@ -14,10 +14,23 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/sign-in').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
   worker:
     image: ai-video-studio:local
     build: .
-    command: ["pnpm", "worker"]
+    # Runs TypeScript directly so the worker never needs a writable package manager.
+    command: ["./node_modules/.bin/tsx", "src/workers/main.ts"]
     restart: unless-stopped
     env_file: .env
     environment:

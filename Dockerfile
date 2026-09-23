@@ -16,7 +16,7 @@ COPY --from=build --chown=node:node /app/src ./src
 COPY --from=build --chown=node:node /app/drizzle ./drizzle
 COPY --from=build --chown=node:node /app/scripts ./scripts
 COPY --from=build --chown=node:node /app/package.json /app/tsconfig.json ./
-RUN mkdir -p /app/data && chown node:node /app/data
+RUN mkdir -p /app/data && chown -R node:node /app
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]
