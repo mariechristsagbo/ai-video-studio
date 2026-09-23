@@ -2,6 +2,7 @@
   "name": "ai-video-studio",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@12.6.0",
   "scripts": {
     "dev": "next dev",
@@ -16,36 +17,37 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "next": "16.3.6",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "@radix-ui/react-slot": "latest",
     "better-auth": "latest",
-    "drizzle-orm": "latest",
-    "pg": "latest",
-    "resend": "latest",
     "bullmq": "latest",
-    "ioredis": "latest",
-    "zod": "latest",
-    "iconsax-react": "latest",
     "class-variance-authority": "latest",
     "clsx": "latest",
-    "tailwind-merge": "latest",
-    "@radix-ui/react-slot": "latest",
+    "dotenv": "^18.0.3",
+    "drizzle-orm": "latest",
     "file-type": "latest",
-    "ipaddr.js": "latest"
+    "iconsax-react": "latest",
+    "ioredis": "latest",
+    "ipaddr.js": "latest",
+    "next": "16.3.6",
+    "pg": "latest",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "resend": "latest",
+    "tailwind-merge": "latest",
+    "zod": "latest"
   },
   "devDependencies": {
-    "typescript": "latest",
+    "@tailwindcss/postcss": "latest",
     "@types/node": "latest",
+    "@types/pg": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@types/pg": "latest",
-    "tsx": "latest",
-    "vitest": "latest",
+    "drizzle-kit": "latest",
     "eslint": "latest",
     "eslint-config-next": "16.3.6",
-    "drizzle-kit": "latest",
     "tailwindcss": "latest",
-    "@tailwindcss/postcss": "latest"
+    "tsx": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
   }
 }
